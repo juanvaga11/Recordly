@@ -30,6 +30,12 @@ interface AnnotationOverlayProps {
 	onClick: (id: string) => void;
 	zIndex: number;
 	isSelectedBoost: boolean; // Boost z-index when selected for easy editing
+	/**
+	 * Width used to scale font sizes / borders. Defaults to the recording rect.
+	 * Frame-pinned annotations pass the video rect width so text keeps the same
+	 * size whether or not it is pinned.
+	 */
+	sizeReferenceWidth?: number;
 }
 
 function positivePercent(value: number) {
@@ -54,6 +60,7 @@ export function AnnotationOverlay({
 	onClick,
 	zIndex,
 	isSelectedBoost,
+	sizeReferenceWidth,
 }: AnnotationOverlayProps) {
 	const safeRecordingRect =
 		recordingRect.width > 0 && recordingRect.height > 0
@@ -67,7 +74,10 @@ export function AnnotationOverlay({
 	const y = sceneY * sceneTransform.scale + sceneTransform.y;
 	const width = sceneWidth * sceneTransform.scale;
 	const height = sceneHeight * sceneTransform.scale;
-	const sizeScale = safeRecordingRect.width / BASE_PREVIEW_WIDTH;
+	const sizeScale =
+		(sizeReferenceWidth && sizeReferenceWidth > 0
+			? sizeReferenceWidth
+			: safeRecordingRect.width) / BASE_PREVIEW_WIDTH;
 	const blurScaleFactor = sizeScale * sceneTransform.scale;
 
 	const isDraggingRef = useRef(false);

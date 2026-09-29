@@ -26,7 +26,7 @@ import {
 	getAvailableWallpapers,
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
-import { type AspectRatio } from "@/utils/aspectRatioUtils";
+import { type AspectRatio, getAspectRatioValue } from "@/utils/aspectRatioUtils";
 import { useI18n, useScopedT } from "../../contexts/I18nContext";
 import type { AppLocale } from "../../i18n/config";
 import { SUPPORTED_LOCALES } from "../../i18n/config";
@@ -1781,6 +1781,7 @@ export function SettingsPanel({
 						? (patch) => onAnnotationSkyPreset(selectedAnnotation.id, patch)
 						: undefined
 				}
+				frameAspect={getAspectRatioValue(aspectRatio)}
 				onFigureDataChange={
 					onAnnotationFigureDataChange
 						? (figureData) =>

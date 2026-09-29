@@ -370,6 +370,8 @@ export class FrameRenderer {
 	private cursorContainer: Container | null = null;
 	private overlayContainer: Container | null = null;
 	private annotationContainer: Container | null = null;
+	/** SKY: annotations pinned to the output frame (not affected by zoom/pan). */
+	private pinnedAnnotationContainer: Container | null = null;
 	private captionContainer: Container | null = null;
 	private webcamRootContainer: Container | null = null;
 	private webcamContainer: Container | null = null;
@@ -510,6 +512,7 @@ export class FrameRenderer {
 		this.cursorContainer = new Container();
 		this.overlayContainer = new Container();
 		this.annotationContainer = new Container();
+		this.pinnedAnnotationContainer = new Container();
 		this.captionContainer = new Container();
 		this.webcamRootContainer = new Container();
 		this.webcamContainer = new Container();
@@ -542,6 +545,7 @@ export class FrameRenderer {
 
 		this.overlayContainer.addChild(this.webcamRootContainer);
 		this.cameraContainer.addChild(this.annotationContainer);
+		this.overlayContainer.addChild(this.pinnedAnnotationContainer);
 		this.overlayContainer.addChild(this.captionContainer);
 
 		this.videoMaskGraphics = new Graphics();
@@ -1524,18 +1528,17 @@ export class FrameRenderer {
 		}
 		this.annotationSprites = [];
 		this.annotationContainer.removeChildren();
+		this.pinnedAnnotationContainer?.removeChildren();
 
 		const annotations = [...(this.config.annotationRegions ?? [])].sort(
 			(first, second) => first.zIndex - second.zIndex,
 		);
 
 		for (const annotation of annotations) {
-			const annotationRect = this.layoutCache?.maskRect ?? {
-				x: 0,
-				y: 0,
-				width: this.config.width,
-				height: this.config.height,
-			};
+			const frameRect = { x: 0, y: 0, width: this.config.width, height: this.config.height };
+			const annotationRect = annotation.pinToFrame
+				? frameRect
+				: (this.layoutCache?.maskRect ?? frameRect);
 			const x = annotationRect.x + (annotation.position.x / 100) * annotationRect.width;
 			const y = annotationRect.y + (annotation.position.y / 100) * annotationRect.height;
 			const width = (annotation.size.width / 100) * annotationRect.width;
@@ -1560,7 +1563,11 @@ export class FrameRenderer {
 			const sprite = new Sprite(texture);
 			sprite.position.set(x, y);
 			sprite.visible = false;
-			this.annotationContainer.addChild(sprite);
+			if (annotation.pinToFrame && this.pinnedAnnotationContainer) {
+				this.pinnedAnnotationContainer.addChild(sprite);
+			} else {
+				this.annotationContainer.addChild(sprite);
+			}
 			this.annotationSprites.push({ annotation, sprite, texture });
 		}
 	}
@@ -2960,10 +2967,15 @@ export class FrameRenderer {
 	private async renderOutput(timeMs: number): Promise<void> {
 		if (this.hasActiveBlurAnnotations(timeMs)) {
 			const annotationContainerVisible = this.annotationContainer?.visible ?? true;
+			const pinnedAnnotationContainerVisible =
+				this.pinnedAnnotationContainer?.visible ?? true;
 			const captionContainerVisible = this.captionContainer?.visible ?? true;
 
 			if (this.annotationContainer) {
 				this.annotationContainer.visible = false;
+			}
+			if (this.pinnedAnnotationContainer) {
+				this.pinnedAnnotationContainer.visible = false;
 			}
 			if (this.captionContainer) {
 				this.captionContainer.visible = false;
@@ -2973,6 +2985,9 @@ export class FrameRenderer {
 
 			if (this.annotationContainer) {
 				this.annotationContainer.visible = annotationContainerVisible;
+			}
+			if (this.pinnedAnnotationContainer) {
+				this.pinnedAnnotationContainer.visible = pinnedAnnotationContainerVisible;
 			}
 			if (this.captionContainer) {
 				this.captionContainer.visible = captionContainerVisible;
@@ -3261,6 +3276,7 @@ export class FrameRenderer {
 		this.cursorContainer = null;
 		this.overlayContainer = null;
 		this.annotationContainer = null;
+		this.pinnedAnnotationContainer = null;
 		this.captionContainer = null;
 		this.webcamRootContainer = null;
 		this.webcamContainer = null;

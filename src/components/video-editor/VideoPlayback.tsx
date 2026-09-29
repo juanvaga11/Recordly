@@ -2729,6 +2729,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									const timeMs = Math.round(timelineTime * 1000);
 									const filtered = (annotationRegions || []).filter(
 										(annotation) =>
+											!annotation.pinToFrame &&
 											isAnnotationActiveAtTime(annotation, timeMs),
 									);
 
@@ -2795,6 +2796,50 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									));
 								})()}
 							</div>
+						</div>
+						{/* SKY: annotations pinned to the frame (watermark, trade card) ignore zoom/pan */}
+						<div className="absolute inset-0" style={{ pointerEvents: "none" }}>
+							{(() => {
+								const timeMs = Math.round(timelineTime * 1000);
+								const frameWidth = overlayRef.current?.clientWidth || 800;
+								const frameHeight = overlayRef.current?.clientHeight || 600;
+								return [...(annotationRegions || [])]
+									.filter(
+										(annotation) =>
+											annotation.pinToFrame &&
+											isAnnotationActiveAtTime(annotation, timeMs),
+									)
+									.sort((a, b) => a.zIndex - b.zIndex)
+									.map((annotation) => (
+										<AnnotationOverlay
+											key={annotation.id}
+											annotation={annotation}
+											isSelected={annotation.id === selectedAnnotationId}
+											containerWidth={frameWidth}
+											containerHeight={frameHeight}
+											recordingRect={{
+												x: 0,
+												y: 0,
+												width: frameWidth,
+												height: frameHeight,
+											}}
+											sceneTransform={{ scale: 1, x: 0, y: 0 }}
+											interactionScale={1}
+											sizeReferenceWidth={
+												annotationRecordingRect.width || frameWidth
+											}
+											onPositionChange={(id, position) =>
+												onAnnotationPositionChange?.(id, position)
+											}
+											onSizeChange={(id, size) =>
+												onAnnotationSizeChange?.(id, size)
+											}
+											onClick={(id) => onSelectAnnotation?.(id)}
+											zIndex={annotation.zIndex}
+											isSelectedBoost={annotation.id === selectedAnnotationId}
+										/>
+									));
+							})()}
 						</div>
 					</div>
 				)}

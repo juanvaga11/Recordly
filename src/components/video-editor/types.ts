@@ -502,6 +502,11 @@ export interface AnnotationRegion {
 	figureData?: FigureData;
 	blurIntensity?: number;
 	blurColor?: string;
+	/**
+	 * SKY Academy: when true the annotation is positioned relative to the whole
+	 * output frame and does not follow zoom/pan (watermarks, trade cards).
+	 */
+	pinToFrame?: boolean;
 }
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {

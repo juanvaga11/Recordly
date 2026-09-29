@@ -2,7 +2,10 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { SKY_LOGO_FULL_DATA_URL, SKY_LOGO_JV_DATA_URL } from "./skyLogos";
 import {
+	adaptSkyPatchToAspect,
+	buildSkyLogoWatermarkPatch,
 	buildSkyWatermarkPatch,
 	buildTradeCardPatch,
 	computeRiskReward,
@@ -12,12 +15,17 @@ import {
 	SKY_SMC_PRESETS,
 	SKY_WATERMARK_TEXT,
 	type SkyAnnotationPatch,
+	type SkyLogoVariant,
 	type SkyTradeCardInput,
 	type SkyTradeDirection,
 } from "./skyPresets";
 
 interface SkyAnnotationPresetsProps {
 	onApply: (patch: SkyAnnotationPatch) => void;
+	/** Output frame width / height (9:16 → 0.5625). Used to size presets. */
+	frameAspect?: number;
+	/** Whether the selected annotation is pinned to the frame. */
+	pinned?: boolean;
 }
 
 function SectionTitle({ children }: { children: string }) {
@@ -32,7 +40,11 @@ function SectionTitle({ children }: { children: string }) {
  * SKY Academy panel shown on top of the annotation settings: one-click SMC
  * zones and labels, brand watermark and the trade card.
  */
-export function SkyAnnotationPresets({ onApply }: SkyAnnotationPresetsProps) {
+export function SkyAnnotationPresets({
+	onApply,
+	frameAspect = 16 / 9,
+	pinned = false,
+}: SkyAnnotationPresetsProps) {
 	const [open, setOpen] = useState(true);
 	const [watermark, setWatermark] = useState(SKY_WATERMARK_TEXT);
 	const [trade, setTrade] = useState<SkyTradeCardInput>({
@@ -50,6 +62,9 @@ export function SkyAnnotationPresets({ onApply }: SkyAnnotationPresetsProps) {
 
 	const updateTrade = (patch: Partial<SkyTradeCardInput>) =>
 		setTrade((current) => ({ ...current, ...patch }));
+
+	const applyLogo = (dataUrl: string, variant: SkyLogoVariant) =>
+		onApply(buildSkyLogoWatermarkPatch(dataUrl, variant, frameAspect));
 
 	return (
 		<div
@@ -80,7 +95,13 @@ export function SkyAnnotationPresets({ onApply }: SkyAnnotationPresetsProps) {
 						<SectionTitle>Zonas SMC</SectionTitle>
 						<div className="grid grid-cols-3 gap-1.5">
 							{zones.map((preset) => (
-								<PresetChip key={preset.id} preset={preset} onApply={onApply} />
+								<PresetChip
+									key={preset.id}
+									preset={preset}
+									onApply={(patch) =>
+										onApply(adaptSkyPatchToAspect(patch, frameAspect))
+									}
+								/>
 							))}
 						</div>
 					</div>
@@ -89,13 +110,31 @@ export function SkyAnnotationPresets({ onApply }: SkyAnnotationPresetsProps) {
 						<SectionTitle>Etiquetas</SectionTitle>
 						<div className="grid grid-cols-4 gap-1.5">
 							{labels.map((preset) => (
-								<PresetChip key={preset.id} preset={preset} onApply={onApply} />
+								<PresetChip
+									key={preset.id}
+									preset={preset}
+									onApply={(patch) =>
+										onApply(adaptSkyPatchToAspect(patch, frameAspect))
+									}
+								/>
 							))}
 						</div>
 					</div>
 
 					<div>
-						<SectionTitle>Marca de agua</SectionTitle>
+						<SectionTitle>Marca de agua (fija, todo el video)</SectionTitle>
+						<div className="mb-2 grid grid-cols-2 gap-1.5">
+							<LogoButton
+								src={SKY_LOGO_JV_DATA_URL}
+								label="Logo JV"
+								onClick={() => applyLogo(SKY_LOGO_JV_DATA_URL, "jv")}
+							/>
+							<LogoButton
+								src={SKY_LOGO_FULL_DATA_URL}
+								label="Logo completo"
+								onClick={() => applyLogo(SKY_LOGO_FULL_DATA_URL, "full")}
+							/>
+						</div>
 						<div className="flex items-center gap-2">
 							<Input
 								value={watermark}
@@ -107,9 +146,11 @@ export function SkyAnnotationPresets({ onApply }: SkyAnnotationPresetsProps) {
 								type="button"
 								size="sm"
 								className="h-8 shrink-0 px-2 text-xs"
-								onClick={() => onApply(buildSkyWatermarkPatch(watermark))}
+								onClick={() =>
+									onApply(buildSkyWatermarkPatch(watermark, frameAspect))
+								}
 							>
-								Todo el video
+								Texto
 							</Button>
 						</div>
 					</div>
@@ -180,12 +221,28 @@ export function SkyAnnotationPresets({ onApply }: SkyAnnotationPresetsProps) {
 								type="button"
 								size="sm"
 								className="h-8 w-full text-xs"
-								onClick={() => onApply(buildTradeCardPatch(trade))}
+								onClick={() => onApply(buildTradeCardPatch(trade, frameAspect))}
 							>
 								Crear tarjeta
 							</Button>
 						</div>
 					</div>
+
+					<label className="flex cursor-pointer items-start gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] p-2">
+						<input
+							type="checkbox"
+							checked={pinned}
+							onChange={(event) => onApply({ pinToFrame: event.target.checked })}
+							className="mt-0.5 h-3.5 w-3.5 shrink-0"
+							style={{ accentColor: SKY_GOLD }}
+						/>
+						<span className="text-[11px] leading-snug text-foreground">
+							<span className="font-semibold">Fijar al marco</span>
+							<span className="block text-muted-foreground">
+								No se mueve con el zoom. Ideal para logo, marca de agua y tarjeta.
+							</span>
+						</span>
+					</label>
 
 					<button
 						type="button"
@@ -197,6 +254,20 @@ export function SkyAnnotationPresets({ onApply }: SkyAnnotationPresetsProps) {
 				</div>
 			) : null}
 		</div>
+	);
+}
+
+function LogoButton({ src, label, onClick }: { src: string; label: string; onClick: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			title={`${label} como marca de agua fija en todo el video`}
+			className="flex h-14 min-w-0 items-center gap-2 rounded-lg border border-foreground/10 bg-[#0A0A0A] px-2 text-left text-[11px] font-semibold text-[#F5E6B3] transition-colors hover:border-[#D4AF37]"
+		>
+			<img src={src} alt="" className="h-10 w-10 shrink-0 object-contain" draggable={false} />
+			<span className="truncate">{label}</span>
+		</button>
 	);
 }
 

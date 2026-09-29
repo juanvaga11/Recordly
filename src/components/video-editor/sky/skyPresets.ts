@@ -90,6 +90,7 @@ function zone(
 		swatch: color,
 		patch: {
 			...textPatch(text),
+			pinToFrame: false,
 			size,
 			style: {
 				...ZONE_BASE_STYLE,
@@ -117,6 +118,7 @@ function tag(
 		swatch: background === "transparent" ? color : background,
 		patch: {
 			...textPatch(text),
+			pinToFrame: false,
 			size: { width: 14, height: 8 },
 			style: {
 				...LABEL_BASE_STYLE,
@@ -198,22 +200,134 @@ export const SKY_SMC_PRESETS: SkyAnnotationPreset[] = [
 
 export const SKY_WATERMARK_TEXT = "JulianVal.fx";
 
-/** Brand watermark: gold, bottom-right, whole video. */
-export function buildSkyWatermarkPatch(text = SKY_WATERMARK_TEXT): SkyAnnotationPatch {
+/* ------------------------------------------------------------------------- */
+/* Frame-aware sizing                                                         */
+/* ------------------------------------------------------------------------- */
+
+/** Width (in base units) of the reference frame used by Recordly annotations. */
+const BASE_WIDTH = 1920;
+/** Inner padding of SKY boxes, must match SKY_BOX_TEXT_PADDING in the renderer. */
+const BOX_PADDING = 20;
+/** Average glyph width of bold Arial (caps + digits) relative to the font size. */
+const BOLD_CHAR_WIDTH = 0.72;
+
+export function isVerticalFrame(frameAspect: number): boolean {
+	return Number.isFinite(frameAspect) && frameAspect > 0 && frameAspect < 1;
+}
+
+/**
+ * Recordly scales text by the video width, so in a vertical Reel (1080 wide)
+ * labels come out ~45% smaller than in a 1920 wide video. SKY presets compensate.
+ */
+export function skyTextScale(frameAspect: number): number {
+	return isVerticalFrame(frameAspect) ? 1.8 : 1;
+}
+
+function clampPercent(value: number, max = 95): number {
+	return Math.round(Math.min(max, Math.max(1, value)) * 10) / 10;
+}
+
+/** Makes an SMC zone/label preset readable on the current frame shape. */
+export function adaptSkyPatchToAspect(
+	patch: SkyAnnotationPatch,
+	frameAspect: number,
+): SkyAnnotationPatch {
+	const scale = skyTextScale(frameAspect);
+	if (scale === 1) return patch;
+	return {
+		...patch,
+		size: patch.size
+			? {
+					width: clampPercent(patch.size.width * scale),
+					height: clampPercent(patch.size.height * 1.25),
+				}
+			: undefined,
+		style: patch.style
+			? {
+					...patch.style,
+					fontSize: patch.style.fontSize
+						? Math.round(patch.style.fontSize * scale)
+						: undefined,
+				}
+			: undefined,
+	};
+}
+
+/**
+ * Corner position for pinned brand elements. In vertical Reels the bottom and
+ * the right edge are covered by Instagram/TikTok buttons, so we go top-right.
+ */
+function brandCorner(
+	frameAspect: number,
+	size: { width: number; height: number },
+): { x: number; y: number } {
+	const margin = 3;
+	if (isVerticalFrame(frameAspect)) {
+		return { x: clampPercent(100 - size.width - 4), y: 7 };
+	}
+	return {
+		x: clampPercent(100 - size.width - margin),
+		y: clampPercent(100 - size.height - margin * 1.5),
+	};
+}
+
+/** Brand watermark (text): gold, pinned to the frame, whole video. */
+export function buildSkyWatermarkPatch(
+	text = SKY_WATERMARK_TEXT,
+	frameAspect = 16 / 9,
+): SkyAnnotationPatch {
 	const content = text.trim() || SKY_WATERMARK_TEXT;
+	const scale = skyTextScale(frameAspect);
+	const fontSize = Math.round(30 * scale);
+	const width = clampPercent(
+		((content.length * BOLD_CHAR_WIDTH * fontSize + 40) / BASE_WIDTH) * 100,
+	);
+	const height = clampPercent(((fontSize * 1.4 + 20) / BASE_WIDTH) * frameAspect * 100);
+	const size = { width, height };
 	return {
 		...textPatch(content),
+		pinToFrame: true,
 		fullDuration: true,
-		position: { x: 66, y: 88 },
-		size: { width: 32, height: 10 },
+		position: brandCorner(frameAspect, size),
+		size,
 		style: {
 			...LABEL_BASE_STYLE,
-			fontSize: 30,
+			fontSize,
 			color: "rgba(212, 175, 55, 0.9)",
 			backgroundColor: "transparent",
 			textAlign: "right",
-			verticalAlign: "bottom",
+			verticalAlign: "middle",
 		},
+	};
+}
+
+export type SkyLogoVariant = "jv" | "full";
+
+/** Width / height of the bundled logo files (src/assets/sky). */
+export const SKY_LOGO_ASPECT: Record<SkyLogoVariant, number> = {
+	jv: 315 / 331,
+	full: 616 / 488,
+};
+
+/** Brand watermark (logo image): pinned to the frame, whole video. */
+export function buildSkyLogoWatermarkPatch(
+	imageDataUrl: string,
+	variant: SkyLogoVariant = "jv",
+	frameAspect = 16 / 9,
+): SkyAnnotationPatch {
+	const vertical = isVerticalFrame(frameAspect);
+	const widthByVariant = vertical ? { jv: 16, full: 30 } : { jv: 8, full: 14 };
+	const width = widthByVariant[variant];
+	const height = clampPercent((width * frameAspect) / SKY_LOGO_ASPECT[variant]);
+	const size = { width, height };
+	return {
+		type: "image",
+		content: imageDataUrl,
+		imageContent: imageDataUrl,
+		pinToFrame: true,
+		fullDuration: true,
+		position: brandCorner(frameAspect, size),
+		size,
 	};
 }
 
@@ -277,19 +391,34 @@ export function buildTradeCardText(input: SkyTradeCardInput): string {
 	return lines.join("\n");
 }
 
-export function buildTradeCardPatch(input: SkyTradeCardInput): SkyAnnotationPatch {
+export function buildTradeCardPatch(
+	input: SkyTradeCardInput,
+	frameAspect = 16 / 9,
+): SkyAnnotationPatch {
 	const content = buildTradeCardText(input);
-	const lineCount = content.split("\n").length;
+	const lines = content.split("\n");
+	const fontSize = Math.round(28 * skyTextScale(frameAspect));
+	const longest = lines.reduce((max, line) => Math.max(max, line.length), 0);
+	const boxChrome = BOX_PADDING * 2 + 16;
+	const width = clampPercent(
+		((longest * BOLD_CHAR_WIDTH * fontSize + boxChrome) / BASE_WIDTH) * 100,
+	);
+	const height = clampPercent(
+		(((lines.length + 0.5) * fontSize * 1.4 + boxChrome) / BASE_WIDTH) * frameAspect * 100,
+		90,
+	);
 	return {
 		...textPatch(content),
-		position: { x: 3, y: 4 },
-		size: { width: 28, height: Math.min(90, 6 + lineCount * 4.4) },
+		// Fixed in the corner of the video: zooming into the chart does not move it.
+		pinToFrame: true,
+		position: { x: 4, y: isVerticalFrame(frameAspect) ? 7 : 5 },
+		size: { width, height },
 		style: {
 			fontFamily: SKY_FONT,
 			fontWeight: "bold",
 			fontStyle: "normal",
 			textDecoration: "none",
-			fontSize: 28,
+			fontSize,
 			color: SKY_GOLD_LIGHT,
 			backgroundColor: "transparent",
 			textAlign: "left",

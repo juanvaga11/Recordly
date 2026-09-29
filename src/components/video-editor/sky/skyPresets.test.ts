@@ -7,6 +7,8 @@ import {
 	DEFAULT_WEBCAM_OVERLAY,
 } from "../types";
 import {
+	adaptSkyPatchToAspect,
+	buildSkyLogoWatermarkPatch,
 	buildSkyReelLayout,
 	buildSkyWatermarkPatch,
 	buildTradeCardPatch,
@@ -15,6 +17,7 @@ import {
 	formatRiskReward,
 	resolveSkyAnnotationPatch,
 	SKY_CLEAR_BOX_STYLE,
+	SKY_LOGO_ASPECT,
 	SKY_SMC_PRESETS,
 } from "./skyPresets";
 
@@ -181,5 +184,98 @@ describe("vertical reels layout", () => {
 		expect(layout.webcam.sourcePath).toBe("/tmp/cam.webm");
 		expect(layout.webcam.enabled).toBe(true);
 		expect(layout.wallpaper).toBe("/wallpapers/sky-negro-dorado.jpg");
+	});
+});
+
+describe("frame pinning and vertical sizing", () => {
+	const VERTICAL = 9 / 16;
+	const HORIZONTAL = 16 / 9;
+
+	it("pins watermark, logo and trade card to the frame; SMC stays on the chart", () => {
+		expect(buildSkyWatermarkPatch("JulianVal.fx", VERTICAL).pinToFrame).toBe(true);
+		expect(buildSkyLogoWatermarkPatch("data:image/webp;base64,xx", "jv").pinToFrame).toBe(true);
+		expect(
+			buildTradeCardPatch(
+				{ symbol: "X", direction: "compra", entry: "", stopLoss: "", takeProfit: "" },
+				VERTICAL,
+			).pinToFrame,
+		).toBe(true);
+		for (const preset of SKY_SMC_PRESETS) {
+			expect(preset.patch.pinToFrame).toBe(false);
+		}
+	});
+
+	it("builds the logo watermark as a full-duration image in a safe corner", () => {
+		const patch = buildSkyLogoWatermarkPatch("data:image/webp;base64,xx", "jv", VERTICAL);
+		const region = resolveSkyAnnotationPatch(makeRegion({ type: "text" }), patch, 30_000);
+		expect(region.type).toBe("image");
+		expect(region.imageContent).toBe("data:image/webp;base64,xx");
+		expect(region.startMs).toBe(0);
+		expect(region.endMs).toBe(30_000);
+		// vertical Reels: top-right, away from the Instagram buttons at the bottom
+		expect(region.position.y).toBeLessThan(20);
+		expect(region.position.x + region.size.width).toBeLessThanOrEqual(100);
+		// horizontal: bottom-right
+		const wide = buildSkyLogoWatermarkPatch("data:image/webp;base64,xx", "jv", HORIZONTAL);
+		expect((wide.position?.y ?? 0) + (wide.size?.height ?? 0)).toBeLessThanOrEqual(100);
+		expect(wide.position?.y).toBeGreaterThan(50);
+	});
+
+	it("keeps the logo proportions on the frame", () => {
+		for (const aspect of [VERTICAL, HORIZONTAL]) {
+			const patch = buildSkyLogoWatermarkPatch("data:image/png;base64,xx", "full", aspect);
+			const pixelRatio = ((patch.size?.width ?? 0) * aspect) / (patch.size?.height ?? 1);
+			expect(pixelRatio).toBeCloseTo(SKY_LOGO_ASPECT.full, 1);
+		}
+	});
+
+	it("makes text bigger in vertical frames so it is readable on a phone", () => {
+		const bos = SKY_SMC_PRESETS.find((preset) => preset.id === "bos");
+		if (!bos) throw new Error("missing preset");
+		expect(adaptSkyPatchToAspect(bos.patch, HORIZONTAL)).toBe(bos.patch);
+		const vertical = adaptSkyPatchToAspect(bos.patch, VERTICAL);
+		expect(vertical.style?.fontSize).toBeGreaterThan(bos.patch.style?.fontSize ?? 0);
+		expect(vertical.size?.width).toBeGreaterThan(bos.patch.size?.width ?? 0);
+		expect(vertical.pinToFrame).toBe(false);
+
+		const cardV = buildTradeCardPatch(
+			{
+				symbol: "XAUUSD",
+				direction: "compra",
+				entry: "1",
+				stopLoss: "0",
+				takeProfit: "3",
+				result: "+3R",
+			},
+			VERTICAL,
+		);
+		const cardH = buildTradeCardPatch(
+			{
+				symbol: "XAUUSD",
+				direction: "compra",
+				entry: "1",
+				stopLoss: "0",
+				takeProfit: "3",
+				result: "+3R",
+			},
+			HORIZONTAL,
+		);
+		expect(cardV.style?.fontSize).toBeGreaterThan(cardH.style?.fontSize ?? 0);
+		for (const card of [cardV, cardH]) {
+			expect((card.position?.x ?? 0) + (card.size?.width ?? 0)).toBeLessThan(100);
+			expect((card.position?.y ?? 0) + (card.size?.height ?? 0)).toBeLessThan(100);
+		}
+	});
+});
+
+describe("embedded logos", () => {
+	it("are valid WebP data URLs the annotation renderer accepts", async () => {
+		const { SKY_LOGO_FULL_DATA_URL, SKY_LOGO_JV_DATA_URL } = await import("./skyLogos");
+		for (const url of [SKY_LOGO_JV_DATA_URL, SKY_LOGO_FULL_DATA_URL]) {
+			expect(url.startsWith("data:image/webp;base64,")).toBe(true);
+			const bytes = Buffer.from(url.split(",")[1] ?? "", "base64");
+			expect(bytes.subarray(0, 4).toString("ascii")).toBe("RIFF");
+			expect(bytes.subarray(8, 12).toString("ascii")).toBe("WEBP");
+		}
 	});
 });

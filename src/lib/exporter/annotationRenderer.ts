@@ -430,18 +430,22 @@ export async function renderAnnotations(
 		height: canvasHeight,
 	};
 
+	const frameRect = { x: 0, y: 0, width: canvasWidth, height: canvasHeight };
+
 	for (const annotation of sortedAnnotations) {
-		const rect = transformAnnotationRect(
-			{
-				x: annotationRect.x + (annotation.position.x / 100) * annotationRect.width,
-				y: annotationRect.y + (annotation.position.y / 100) * annotationRect.height,
-				width: (annotation.size.width / 100) * annotationRect.width,
-				height: (annotation.size.height / 100) * annotationRect.height,
-			},
-			sceneTransform,
-		);
+		// Pinned annotations (SKY watermark / trade card) use the whole output frame
+		// and ignore zoom/pan so they stay fixed in the corner of the video.
+		const pinned = annotation.pinToFrame === true;
+		const baseRect = pinned ? frameRect : annotationRect;
+		const rawRect = {
+			x: baseRect.x + (annotation.position.x / 100) * baseRect.width,
+			y: baseRect.y + (annotation.position.y / 100) * baseRect.height,
+			width: (annotation.size.width / 100) * baseRect.width,
+			height: (annotation.size.height / 100) * baseRect.height,
+		};
+		const rect = pinned ? rawRect : transformAnnotationRect(rawRect, sceneTransform);
 		const { x, y, width, height } = rect;
-		const effectiveScaleFactor = scaleFactor * (sceneTransform?.scale ?? 1);
+		const effectiveScaleFactor = scaleFactor * (pinned ? 1 : (sceneTransform?.scale ?? 1));
 
 		switch (annotation.type) {
 			case "text":

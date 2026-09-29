@@ -48,6 +48,8 @@ interface AnnotationSettingsPanelProps {
 	onBlurIntensityChange?: (intensity: number) => void;
 	onBlurColorChange?: (color: string) => void;
 	onSkyPreset?: (patch: SkyAnnotationPatch) => void;
+	/** Output frame width / height, used to size SKY presets. */
+	frameAspect?: number;
 	onDelete: () => void;
 }
 
@@ -73,6 +75,7 @@ export function AnnotationSettingsPanel({
 	onBlurIntensityChange,
 	onBlurColorChange,
 	onSkyPreset,
+	frameAspect,
 	onDelete,
 }: AnnotationSettingsPanelProps) {
 	const t = useScopedT("editor");
@@ -147,7 +150,13 @@ export function AnnotationSettingsPanel({
 	return (
 		<Card className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-none bg-transparent p-0 shadow-none">
 			<div className="flex-1 min-h-0 px-5 pb-6 pt-1 overflow-y-auto custom-scrollbar">
-				{onSkyPreset ? <SkyAnnotationPresets onApply={onSkyPreset} /> : null}
+				{onSkyPreset ? (
+					<SkyAnnotationPresets
+						onApply={onSkyPreset}
+						frameAspect={frameAspect}
+						pinned={annotation.pinToFrame === true}
+					/>
+				) : null}
 				<div className="mb-6">
 					{/* Type Selector */}
 					<div className="space-y-4">
