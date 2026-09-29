@@ -70,6 +70,8 @@ jobs:
           retention-days: 30
 
   build-macos:
+    # SKY fork: only the Windows installer is needed
+    if: github.repository == 'webadderallorg/Recordly'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -142,6 +144,8 @@ jobs:
           retention-days: 30
 
   build-linux:
+    # SKY fork: only the Windows installer is needed
+    if: github.repository == 'webadderallorg/Recordly'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

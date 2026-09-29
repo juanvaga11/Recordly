@@ -52,7 +52,7 @@
   "publish": [
     {
       "provider": "github",
-      "owner": "webadderall",
+      "owner": "juanvaga11",
       "repo": "Recordly",
       "tagNamePrefix": "v",
       "publishAutoUpdate": true
