@@ -214,6 +214,7 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		onAnnotationContentChange: annotationCommands.handleAnnotationContentChange,
 		onAnnotationTypeChange: annotationCommands.handleAnnotationTypeChange,
 		onAnnotationStyleChange: annotationCommands.handleAnnotationStyleChange,
+		onAnnotationSkyPreset: annotationCommands.handleAnnotationSkyPreset,
 		onAnnotationFigureDataChange: annotationCommands.handleAnnotationFigureDataChange,
 		onAnnotationBlurIntensityChange: annotationCommands.handleAnnotationBlurIntensityChange,
 		onAnnotationBlurColorChange: annotationCommands.handleAnnotationBlurColorChange,

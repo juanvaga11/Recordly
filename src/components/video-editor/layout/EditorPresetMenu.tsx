@@ -22,6 +22,7 @@ export function EditorPresetMenu({ t, presets }: Props) {
 		handleApplyEditorPreset,
 		handleDeleteEditorPreset,
 		handleSavePresetSubmit,
+		handleApplySkyReelPreset,
 	} = presets;
 
 	return (
@@ -51,6 +52,15 @@ export function EditorPresetMenu({ t, presets }: Props) {
 			>
 				<div className="space-y-4">
 					<h3 className="text-sm font-medium">{t("editor.presets.label", "Presets")}</h3>
+					<Button
+						type="button"
+						onClick={handleApplySkyReelPreset}
+						className="flex h-10 w-full items-center justify-center gap-2 text-[13px] font-semibold"
+						style={{ background: "#D4AF37", color: "#0A0A0A" }}
+						title="9:16, sin relleno, recorte al gráfico, cámara abajo y fondo SKY"
+					>
+						Vertical para Reels (SKY 9:16)
+					</Button>
 					<form
 						onSubmit={(event) => {
 							event.preventDefault();

@@ -464,6 +464,18 @@ export interface AnnotationTextStyle {
 	textDecoration: "none" | "underline";
 	textAlign: "left" | "center" | "right";
 	borderRadius: number;
+	/**
+	 * Optional filled box behind the whole annotation area (not just behind each
+	 * text line). Used by the SKY Academy SMC zones (OB, FVG, liquidez…) and the
+	 * trade card. When unset the annotation renders exactly as before.
+	 */
+	boxFill?: string;
+	/** Optional border drawn around the whole annotation box. */
+	boxBorderColor?: string;
+	/** Border width in base (1920px-wide) pixels. Defaults to 3 when a border color is set. */
+	boxBorderWidth?: number;
+	/** Vertical placement of the text inside the box. Defaults to "middle". */
+	verticalAlign?: "top" | "middle" | "bottom";
 }
 
 function getDefaultAnnotationFontFamily() {

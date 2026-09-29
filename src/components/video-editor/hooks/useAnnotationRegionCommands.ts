@@ -8,6 +8,7 @@ import {
 	DEFAULT_FIGURE_DATA,
 	type FigureData,
 } from "../types";
+import { resolveSkyAnnotationPatch, type SkyAnnotationPatch } from "../sky/skyPresets";
 
 interface UseAnnotationRegionCommandsParams {
 	onSelectAnnotation: (id: string | null) => void;
@@ -17,6 +18,8 @@ interface UseAnnotationRegionCommandsParams {
 	setSelectedZoomId: Dispatch<SetStateAction<string | null>>;
 	nextAnnotationIdRef: MutableRefObject<number>;
 	nextAnnotationZIndexRef: MutableRefObject<number>;
+	/** Video duration in ms, used by SKY presets that cover the whole video. */
+	durationMs?: number;
 }
 
 export function useAnnotationRegionCommands({
@@ -27,6 +30,7 @@ export function useAnnotationRegionCommands({
 	setSelectedZoomId,
 	nextAnnotationIdRef,
 	nextAnnotationZIndexRef,
+	durationMs = 0,
 }: UseAnnotationRegionCommandsParams) {
 	const handleAnnotationAdded = useCallback(
 		(span: Span, trackIndex = 0) => {
@@ -144,6 +148,18 @@ export function useAnnotationRegionCommands({
 		},
 		[setAnnotationRegions],
 	);
+	const handleAnnotationSkyPreset = useCallback(
+		(id: string, patch: SkyAnnotationPatch) => {
+			setAnnotationRegions((current) =>
+				current.map((region) =>
+					region.id === id
+						? resolveSkyAnnotationPatch(region, patch, durationMs)
+						: region,
+				),
+			);
+		},
+		[durationMs, setAnnotationRegions],
+	);
 	const handleAnnotationFigureDataChange = useCallback(
 		(id: string, figureData: FigureData) => updateRegion(id, { figureData }),
 		[updateRegion],
@@ -172,6 +188,7 @@ export function useAnnotationRegionCommands({
 		handleAnnotationContentChange,
 		handleAnnotationTypeChange,
 		handleAnnotationStyleChange,
+		handleAnnotationSkyPreset,
 		handleAnnotationFigureDataChange,
 		handleAnnotationBlurIntensityChange,
 		handleAnnotationBlurColorChange,

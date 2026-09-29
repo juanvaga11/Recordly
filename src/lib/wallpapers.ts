@@ -11,6 +11,11 @@ const VIDEO_FILE_PATTERN = /\.(avi|m4v|mkv|mov|mp4|webm)$/i;
 export const BUILT_IN_WALLPAPERS: BuiltInWallpaper[] = [
 	createWallpaperEntry("tahoe-light.jpg", "Tahoe Light"),
 	createWallpaperEntry("tahoe-dark.jpg", "Tahoe Dark"),
+	// SKY Academy / JulianVal.fx brand kit (dorado y negro)
+	createWallpaperEntry("sky-negro-dorado.jpg", "SKY Negro Dorado"),
+	createWallpaperEntry("sky-grafico.jpg", "SKY Gráfico"),
+	createWallpaperEntry("sky-carbono.jpg", "SKY Carbono"),
+	createWallpaperEntry("sky-oro-liquido.jpg", "SKY Oro Líquido"),
 	createWallpaperEntry("midnight-8.jpg", "Midnight 8"),
 	createWallpaperEntry("ipad-17-dark.jpg", "iPad 17 Dark"),
 	createWallpaperEntry("ipad-17-light.jpg", "iPad 17 Light"),

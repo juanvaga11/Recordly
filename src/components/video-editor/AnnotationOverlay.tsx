@@ -120,8 +120,23 @@ export function AnnotationOverlay({
 									: annotation.style.textAlign === "right"
 										? "flex-end"
 										: "center",
-							alignItems: "center",
-							padding: `${8 * sizeScale}px`,
+							alignItems:
+								annotation.style.verticalAlign === "top"
+									? "flex-start"
+									: annotation.style.verticalAlign === "bottom"
+										? "flex-end"
+										: "center",
+							padding: `${(annotation.style.boxFill || annotation.style.boxBorderColor ? 20 : 8) * sizeScale}px`,
+							...(annotation.style.boxFill || annotation.style.boxBorderColor
+								? {
+										backgroundColor: annotation.style.boxFill ?? "transparent",
+										border: annotation.style.boxBorderColor
+											? `${Math.max(1, (annotation.style.boxBorderWidth ?? 3) * sizeScale)}px solid ${annotation.style.boxBorderColor}`
+											: undefined,
+										borderRadius: `${annotation.style.borderRadius * sizeScale}px`,
+										boxSizing: "border-box" as const,
+									}
+								: {}),
 						}}
 					>
 						<span

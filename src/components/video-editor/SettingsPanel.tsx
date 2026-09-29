@@ -30,6 +30,7 @@ import { type AspectRatio } from "@/utils/aspectRatioUtils";
 import { useI18n, useScopedT } from "../../contexts/I18nContext";
 import type { AppLocale } from "../../i18n/config";
 import { SUPPORTED_LOCALES } from "../../i18n/config";
+import type { SkyAnnotationPatch } from "./sky/skyPresets";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import CaptionListPanel from "./CaptionListPanel";
 import type { CaptionRetimeSpan } from "./captionOps";
@@ -528,6 +529,7 @@ interface SettingsPanelProps {
 	onAnnotationContentChange?: (id: string, content: string) => void;
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
+	onAnnotationSkyPreset?: (id: string, patch: SkyAnnotationPatch) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
 	onAnnotationBlurIntensityChange?: (id: string, intensity: number) => void;
 	onAnnotationBlurColorChange?: (id: string, color: string) => void;
@@ -972,6 +974,7 @@ export function SettingsPanel({
 	onAnnotationContentChange,
 	onAnnotationTypeChange,
 	onAnnotationStyleChange,
+	onAnnotationSkyPreset,
 	onAnnotationFigureDataChange,
 	onAnnotationBlurIntensityChange,
 	onAnnotationBlurColorChange,
@@ -1773,6 +1776,11 @@ export function SettingsPanel({
 				}
 				onTypeChange={(type) => onAnnotationTypeChange(selectedAnnotation.id, type)}
 				onStyleChange={(style) => onAnnotationStyleChange(selectedAnnotation.id, style)}
+				onSkyPreset={
+					onAnnotationSkyPreset
+						? (patch) => onAnnotationSkyPreset(selectedAnnotation.id, patch)
+						: undefined
+				}
 				onFigureDataChange={
 					onAnnotationFigureDataChange
 						? (figureData) =>

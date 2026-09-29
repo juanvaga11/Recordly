@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils";
 import { useScopedT } from "../../contexts/I18nContext";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
 import { getArrowComponent } from "./ArrowSvgs";
+import { SkyAnnotationPresets } from "./sky/SkyAnnotationPresets";
+import type { SkyAnnotationPatch } from "./sky/skyPresets";
 import type { AnnotationRegion, AnnotationType, ArrowDirection, FigureData } from "./types";
 
 interface AnnotationSettingsPanelProps {
@@ -45,6 +47,7 @@ interface AnnotationSettingsPanelProps {
 	onFigureDataChange?: (figureData: FigureData) => void;
 	onBlurIntensityChange?: (intensity: number) => void;
 	onBlurColorChange?: (color: string) => void;
+	onSkyPreset?: (patch: SkyAnnotationPatch) => void;
 	onDelete: () => void;
 }
 
@@ -69,6 +72,7 @@ export function AnnotationSettingsPanel({
 	onFigureDataChange,
 	onBlurIntensityChange,
 	onBlurColorChange,
+	onSkyPreset,
 	onDelete,
 }: AnnotationSettingsPanelProps) {
 	const t = useScopedT("editor");
@@ -143,6 +147,7 @@ export function AnnotationSettingsPanel({
 	return (
 		<Card className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-none bg-transparent p-0 shadow-none">
 			<div className="flex-1 min-h-0 px-5 pb-6 pt-1 overflow-y-auto custom-scrollbar">
+				{onSkyPreset ? <SkyAnnotationPresets onApply={onSkyPreset} /> : null}
 				<div className="mb-6">
 					{/* Type Selector */}
 					<div className="space-y-4">

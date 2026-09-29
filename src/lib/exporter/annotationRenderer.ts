@@ -199,6 +199,50 @@ function renderArrow(
 	ctx.restore();
 }
 
+/** Inner padding (base pixels) for text inside a SKY box so it doesn't touch the border. */
+export const SKY_BOX_TEXT_PADDING = 20;
+
+/**
+ * Draws the optional full-area box used by SKY Academy zones and trade cards.
+ * No-op for regular text annotations (no boxFill / boxBorderColor).
+ */
+export function renderTextBox(
+	ctx: CanvasRenderingContext2D,
+	style: AnnotationRegion["style"],
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	scaleFactor: number,
+) {
+	const hasFill = Boolean(style.boxFill && style.boxFill !== "transparent");
+	const hasBorder = Boolean(style.boxBorderColor && style.boxBorderColor !== "transparent");
+	if (!hasFill && !hasBorder) return;
+
+	const borderWidth = hasBorder ? Math.max(1, (style.boxBorderWidth ?? 3) * scaleFactor) : 0;
+	const inset = borderWidth / 2;
+	const boxWidth = Math.max(0, width - borderWidth);
+	const boxHeight = Math.max(0, height - borderWidth);
+	const radius = Math.max(
+		0,
+		Math.min((style.borderRadius ?? 0) * scaleFactor, boxWidth / 2, boxHeight / 2),
+	);
+
+	ctx.save();
+	ctx.beginPath();
+	ctx.roundRect(x + inset, y + inset, boxWidth, boxHeight, radius);
+	if (hasFill) {
+		ctx.fillStyle = style.boxFill as string;
+		ctx.fill();
+	}
+	if (hasBorder) {
+		ctx.lineWidth = borderWidth;
+		ctx.strokeStyle = style.boxBorderColor as string;
+		ctx.stroke();
+	}
+	ctx.restore();
+}
+
 function renderText(
 	ctx: CanvasRenderingContext2D,
 	annotation: AnnotationRegion,
@@ -216,13 +260,16 @@ function renderText(
 	ctx.rect(x, y, width, height);
 	ctx.clip();
 
+	renderTextBox(ctx, style, x, y, width, height, scaleFactor);
+
 	const fontWeight = style.fontWeight === "bold" ? "bold" : "normal";
 	const fontStyle = style.fontStyle === "italic" ? "italic" : "normal";
 	const scaledFontSize = style.fontSize * scaleFactor;
 	ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${style.fontFamily}`;
 	ctx.textBaseline = "middle";
 
-	const containerPadding = 8 * scaleFactor;
+	const hasBox = Boolean(style.boxFill || style.boxBorderColor);
+	const containerPadding = (hasBox ? SKY_BOX_TEXT_PADDING : 8) * scaleFactor;
 
 	let textX = x;
 	const textY = y + height / 2;
@@ -261,7 +308,12 @@ function renderText(
 	}
 	const lineHeight = scaledFontSize * 1.4;
 
-	const startY = textY - ((lines.length - 1) * lineHeight) / 2;
+	let startY = textY - ((lines.length - 1) * lineHeight) / 2;
+	if (style.verticalAlign === "top") {
+		startY = y + containerPadding + lineHeight / 2;
+	} else if (style.verticalAlign === "bottom") {
+		startY = y + height - containerPadding - lineHeight / 2 - (lines.length - 1) * lineHeight;
+	}
 
 	lines.forEach((line, index) => {
 		const currentY = startY + index * lineHeight;
