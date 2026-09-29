@@ -279,3 +279,42 @@ describe("embedded logos", () => {
 		}
 	});
 });
+
+describe("logo + text watermark together", () => {
+	function overlaps(
+		a: { position?: { x: number; y: number }; size?: { width: number; height: number } },
+		b: { position?: { x: number; y: number }; size?: { width: number; height: number } },
+	) {
+		if (!a.position || !a.size || !b.position || !b.size) throw new Error("missing layout");
+		return !(
+			a.position.x + a.size.width <= b.position.x ||
+			b.position.x + b.size.width <= a.position.x ||
+			a.position.y + a.size.height <= b.position.y ||
+			b.position.y + b.size.height <= a.position.y
+		);
+	}
+
+	for (const [name, aspect] of [
+		["vertical", 9 / 16],
+		["horizontal", 16 / 9],
+		["square", 1],
+	] as const) {
+		it(`never overlap in ${name} frames`, () => {
+			const text = buildSkyWatermarkPatch("@julianval.fx", aspect);
+			for (const variant of ["jv", "full"] as const) {
+				const logo = buildSkyLogoWatermarkPatch(
+					"data:image/webp;base64,xx",
+					variant,
+					aspect,
+				);
+				expect(overlaps(text, logo)).toBe(false);
+				for (const item of [text, logo]) {
+					expect(item.position?.y ?? -1).toBeGreaterThanOrEqual(0);
+					expect((item.position?.y ?? 0) + (item.size?.height ?? 0)).toBeLessThanOrEqual(
+						100,
+					);
+				}
+			}
+		});
+	}
+});

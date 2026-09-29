@@ -253,22 +253,61 @@ export function adaptSkyPatchToAspect(
 	};
 }
 
-/**
- * Corner position for pinned brand elements. In vertical Reels the bottom and
- * the right edge are covered by Instagram/TikTok buttons, so we go top-right.
+export type SkyLogoVariant = "jv" | "full";
+
+/** Width / height of the bundled logo files (skyLogos.ts). */
+export const SKY_LOGO_ASPECT: Record<SkyLogoVariant, number> = {
+	jv: 315 / 331,
+	full: 616 / 488,
+};
+
+/*
+ * Brand corner layout. The logo and the text watermark share one corner and are
+ * stacked so they never overlap when both are used:
+ *   - vertical (Reels/TikTok): top-right, logo on top, text right below it.
+ *     The bottom and right edge are covered by the app buttons.
+ *   - horizontal: bottom-right, text at the bottom, logo right above it.
  */
-function brandCorner(
-	frameAspect: number,
-	size: { width: number; height: number },
-): { x: number; y: number } {
-	const margin = 3;
+const BRAND_GAP = 0.8;
+
+function brandMarginX(frameAspect: number): number {
+	return isVerticalFrame(frameAspect) ? 4 : 3;
+}
+
+function watermarkFontSize(frameAspect: number): number {
+	return Math.round(30 * skyTextScale(frameAspect));
+}
+
+function watermarkTextHeight(frameAspect: number): number {
+	const fontSize = watermarkFontSize(frameAspect);
+	return clampPercent(((fontSize * 1.4 + 20) / BASE_WIDTH) * frameAspect * 100);
+}
+
+function logoSize(variant: SkyLogoVariant, frameAspect: number) {
+	const widthByVariant = isVerticalFrame(frameAspect)
+		? { jv: 16, full: 24 }
+		: { jv: 8, full: 14 };
+	const width = widthByVariant[variant];
+	return { width, height: clampPercent((width * frameAspect) / SKY_LOGO_ASPECT[variant]) };
+}
+
+function textWatermarkY(frameAspect: number): number {
 	if (isVerticalFrame(frameAspect)) {
-		return { x: clampPercent(100 - size.width - 4), y: 7 };
+		// below the tallest logo variant, so it works with either logo
+		const tallest = Math.max(
+			logoSize("jv", frameAspect).height,
+			logoSize("full", frameAspect).height,
+		);
+		return clampPercent(7 + tallest + BRAND_GAP);
 	}
-	return {
-		x: clampPercent(100 - size.width - margin),
-		y: clampPercent(100 - size.height - margin * 1.5),
-	};
+	return clampPercent(100 - watermarkTextHeight(frameAspect) - 4.5);
+}
+
+function logoWatermarkY(variant: SkyLogoVariant, frameAspect: number): number {
+	if (isVerticalFrame(frameAspect)) return 7;
+	return clampPercent(
+		textWatermarkY(frameAspect) - logoSize(variant, frameAspect).height - BRAND_GAP,
+	);
 }
 
 /** Brand watermark (text): gold, pinned to the frame, whole video. */
@@ -277,18 +316,19 @@ export function buildSkyWatermarkPatch(
 	frameAspect = 16 / 9,
 ): SkyAnnotationPatch {
 	const content = text.trim() || SKY_WATERMARK_TEXT;
-	const scale = skyTextScale(frameAspect);
-	const fontSize = Math.round(30 * scale);
+	const fontSize = watermarkFontSize(frameAspect);
 	const width = clampPercent(
 		((content.length * BOLD_CHAR_WIDTH * fontSize + 40) / BASE_WIDTH) * 100,
 	);
-	const height = clampPercent(((fontSize * 1.4 + 20) / BASE_WIDTH) * frameAspect * 100);
-	const size = { width, height };
+	const size = { width, height: watermarkTextHeight(frameAspect) };
 	return {
 		...textPatch(content),
 		pinToFrame: true,
 		fullDuration: true,
-		position: brandCorner(frameAspect, size),
+		position: {
+			x: clampPercent(100 - width - brandMarginX(frameAspect)),
+			y: textWatermarkY(frameAspect),
+		},
 		size,
 		style: {
 			...LABEL_BASE_STYLE,
@@ -301,32 +341,23 @@ export function buildSkyWatermarkPatch(
 	};
 }
 
-export type SkyLogoVariant = "jv" | "full";
-
-/** Width / height of the bundled logo files (src/assets/sky). */
-export const SKY_LOGO_ASPECT: Record<SkyLogoVariant, number> = {
-	jv: 315 / 331,
-	full: 616 / 488,
-};
-
 /** Brand watermark (logo image): pinned to the frame, whole video. */
 export function buildSkyLogoWatermarkPatch(
 	imageDataUrl: string,
 	variant: SkyLogoVariant = "jv",
 	frameAspect = 16 / 9,
 ): SkyAnnotationPatch {
-	const vertical = isVerticalFrame(frameAspect);
-	const widthByVariant = vertical ? { jv: 16, full: 30 } : { jv: 8, full: 14 };
-	const width = widthByVariant[variant];
-	const height = clampPercent((width * frameAspect) / SKY_LOGO_ASPECT[variant]);
-	const size = { width, height };
+	const size = logoSize(variant, frameAspect);
 	return {
 		type: "image",
 		content: imageDataUrl,
 		imageContent: imageDataUrl,
 		pinToFrame: true,
 		fullDuration: true,
-		position: brandCorner(frameAspect, size),
+		position: {
+			x: clampPercent(100 - size.width - brandMarginX(frameAspect)),
+			y: logoWatermarkY(variant, frameAspect),
+		},
 		size,
 	};
 }
