@@ -323,6 +323,7 @@ export function AnnotationOverlay({
 			<div
 				className={cn(
 					"w-full h-full rounded-lg",
+					annotation.skyMotion && `sky-motion sky-motion-${annotation.skyMotion}`,
 					annotation.type === "text" && "bg-transparent",
 					annotation.type === "image" && "bg-transparent",
 					annotation.type === "figure" && "bg-transparent",

@@ -5,9 +5,10 @@ import { CaretDown, TimerIcon } from "@/components/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import type { AnnotationRegion } from "../types";
+import type { AnnotationRegion, AudioRegion } from "../types";
 import {
 	buildDecisionCountdown,
+	countdownSoundTimes,
 	DEFAULT_DECISION_COUNTDOWN,
 	type DecisionCountdownInput,
 	nextAnnotationZIndex,
@@ -15,10 +16,12 @@ import {
 	SKY_COUNTDOWN_ID_PREFIX,
 } from "./decisionCountdown";
 import { SKY_GOLD } from "./skyPresets";
+import { findSkySound, placeSoundEffects, type SfxPlacement } from "./soundEffects";
 
 interface ExpectationMenuProps {
 	annotationRegions: AnnotationRegion[];
 	setAnnotationRegions: Dispatch<SetStateAction<AnnotationRegion[]>>;
+	setAudioRegions: Dispatch<SetStateAction<AudioRegion[]>>;
 	/** Playhead in seconds (timeline time). */
 	playheadSeconds: number;
 	/** Output frame width / height. */
@@ -49,9 +52,12 @@ const inputClass =
 export function ExpectationMenu({
 	annotationRegions,
 	setAnnotationRegions,
+	setAudioRegions,
 	playheadSeconds,
 	frameAspect,
 }: ExpectationMenuProps) {
+	const [includeQuestion, setIncludeQuestion] = useState(true);
+	const [withSound, setWithSound] = useState(true);
 	const [open, setOpen] = useState(false);
 	const [question, setQuestion] = useState(DEFAULT_DECISION_COUNTDOWN.question);
 	const [optionA, setOptionA] = useState(DEFAULT_DECISION_COUNTDOWN.optionA);
@@ -64,19 +70,37 @@ export function ExpectationMenu({
 			.map((region) => region.id.split("-").slice(0, 4).join("-")),
 	).size;
 
-	const insert = () => {
-		const regions = buildDecisionCountdown(
-			{ question, optionA, optionB, seconds, place, startMs: playheadSeconds * 1000 },
-			frameAspect,
-			{
-				firstTrack: nextFreeAnnotationTrack(annotationRegions),
-				firstZIndex: nextAnnotationZIndex(annotationRegions),
-			},
-		);
+	const insert = async () => {
+		const input: DecisionCountdownInput = {
+			question,
+			optionA,
+			optionB,
+			seconds,
+			place,
+			includeQuestion,
+			startMs: playheadSeconds * 1000,
+		};
+		const regions = buildDecisionCountdown(input, frameAspect, {
+			firstTrack: nextFreeAnnotationTrack(annotationRegions),
+			firstZIndex: nextAnnotationZIndex(annotationRegions),
+		});
 		setAnnotationRegions((current) => [...current, ...regions]);
+		let soundAdded = false;
+		if (withSound) {
+			const placements: SfxPlacement[] = [];
+			for (const { soundId, startMs } of countdownSoundTimes(input)) {
+				const sound = await findSkySound(soundId);
+				if (sound)
+					placements.push({ path: sound.path, startMs, durationMs: sound.durationMs });
+			}
+			if (placements.length > 0) {
+				setAudioRegions((current) => placeSoundEffects(current, placements));
+				soundAdded = true;
+			}
+		}
 		setOpen(false);
-		toast.success("Expectativa agregada", {
-			description: `Pregunta + cuenta regresiva de ${seconds} s desde aquí. Cada parte se puede editar o mover en la línea de tiempo. Ctrl+Z para deshacer.`,
+		toast.success(includeQuestion ? "Expectativa agregada" : "Cuenta regresiva agregada", {
+			description: `${seconds} s desde aquí${soundAdded ? " con tic-tac y ding al final" : ""}. Cada parte se puede editar o mover. Ctrl+Z para deshacer.`,
 		});
 	};
 
@@ -111,50 +135,82 @@ export function ExpectationMenu({
 						</p>
 					</div>
 
-					<div className="space-y-1.5">
-						<label className="text-[11px] font-semibold text-foreground">
-							Pregunta
-							<input
-								className={cn(inputClass, "mt-1")}
-								value={question}
-								maxLength={40}
-								onChange={(event) => setQuestion(event.target.value)}
-							/>
-						</label>
-						<div className="flex flex-wrap gap-1">
-							{QUICK_QUESTIONS.map((item) => (
-								<button
-									key={item}
-									type="button"
-									onClick={() => setQuestion(item)}
-									className="rounded-full border border-foreground/10 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-[#D4AF37] hover:text-foreground"
-								>
-									{item}
-								</button>
-							))}
-						</div>
+					<div className="grid grid-cols-2 gap-1.5">
+						{(
+							[
+								[includeQuestion, setIncludeQuestion, "Con pregunta"],
+								[withSound, setWithSound, "Con tic-tac"],
+							] as const
+						).map(([value, setValue, label]) => (
+							<button
+								key={label}
+								type="button"
+								aria-pressed={value}
+								onClick={() => setValue(!value)}
+								className={cn(
+									"h-8 rounded-lg border text-[11px] font-semibold",
+									value
+										? "border-[#D4AF37] bg-[#D4AF37]/15 text-foreground"
+										: "border-foreground/10 text-muted-foreground line-through",
+								)}
+							>
+								{label}
+							</button>
+						))}
 					</div>
 
-					<div className="grid grid-cols-2 gap-2">
-						<label className="text-[11px] font-semibold text-emerald-400">
-							Opción verde
-							<input
-								className={cn(inputClass, "mt-1")}
-								value={optionA}
-								maxLength={14}
-								onChange={(event) => setOptionA(event.target.value)}
-							/>
-						</label>
-						<label className="text-[11px] font-semibold text-red-400">
-							Opción roja
-							<input
-								className={cn(inputClass, "mt-1")}
-								value={optionB}
-								maxLength={14}
-								onChange={(event) => setOptionB(event.target.value)}
-							/>
-						</label>
-					</div>
+					{includeQuestion ? (
+						<>
+							<div className="space-y-1.5">
+								<label className="text-[11px] font-semibold text-foreground">
+									Pregunta
+									<input
+										className={cn(inputClass, "mt-1")}
+										value={question}
+										maxLength={40}
+										onChange={(event) => setQuestion(event.target.value)}
+									/>
+								</label>
+								<div className="flex flex-wrap gap-1">
+									{QUICK_QUESTIONS.map((item) => (
+										<button
+											key={item}
+											type="button"
+											onClick={() => setQuestion(item)}
+											className="rounded-full border border-foreground/10 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-[#D4AF37] hover:text-foreground"
+										>
+											{item}
+										</button>
+									))}
+								</div>
+							</div>
+
+							<div className="grid grid-cols-2 gap-2">
+								<label className="text-[11px] font-semibold text-emerald-400">
+									Opción verde
+									<input
+										className={cn(inputClass, "mt-1")}
+										value={optionA}
+										maxLength={14}
+										onChange={(event) => setOptionA(event.target.value)}
+									/>
+								</label>
+								<label className="text-[11px] font-semibold text-red-400">
+									Opción roja
+									<input
+										className={cn(inputClass, "mt-1")}
+										value={optionB}
+										maxLength={14}
+										onChange={(event) => setOptionB(event.target.value)}
+									/>
+								</label>
+							</div>
+						</>
+					) : (
+						<p className="text-[10px] leading-snug text-muted-foreground">
+							Solo el círculo 3-2-1: arrástrelo encima del gráfico donde quiera.
+						</p>
+					)}
 
 					<div className="grid grid-cols-2 gap-3">
 						<div>
@@ -205,7 +261,7 @@ export function ExpectationMenu({
 
 					<Button
 						type="button"
-						onClick={insert}
+						onClick={() => void insert()}
 						className="h-9 w-full text-xs font-semibold"
 						style={{ background: SKY_GOLD, color: "#0A0A0A" }}
 					>

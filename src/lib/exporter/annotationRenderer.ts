@@ -1,3 +1,4 @@
+import { computeSkyMotion, IDLE_MOTION } from "@/lib/skyMotion";
 import {
 	type AnnotationRegion,
 	type ArrowDirection,
@@ -447,6 +448,23 @@ export async function renderAnnotations(
 		const { x, y, width, height } = rect;
 		const effectiveScaleFactor = scaleFactor * (pinned ? 1 : (sceneTransform?.scale ?? 1));
 
+		// SKY: pop / pulse / bell shake… around the annotation center
+		const motion =
+			annotation.type === "blur"
+				? null
+				: computeSkyMotion(annotation.skyMotion, currentTimeMs - annotation.startMs);
+		const animated = motion !== null && motion !== IDLE_MOTION;
+		if (animated && motion) {
+			const cx = x + width / 2;
+			const cy = y + height / 2 + motion.offsetY * height;
+			ctx.save();
+			ctx.globalAlpha *= motion.alpha;
+			ctx.translate(cx, cy);
+			ctx.rotate(motion.rotation);
+			ctx.scale(motion.scale, motion.scale);
+			ctx.translate(-(x + width / 2), -(y + height / 2));
+		}
+
 		switch (annotation.type) {
 			case "text":
 				renderText(ctx, annotation, x, y, width, height, effectiveScaleFactor);
@@ -514,6 +532,8 @@ export async function renderAnnotations(
 				break;
 			}
 		}
+
+		if (animated) ctx.restore();
 	}
 }
 

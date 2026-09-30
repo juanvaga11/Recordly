@@ -507,7 +507,13 @@ export interface AnnotationRegion {
 	 * output frame and does not follow zoom/pan (watermarks, trade cards).
 	 */
 	pinToFrame?: boolean;
+	/** SKY Academy: simple entrance / loop animation (stickers, buttons, bell). */
+	skyMotion?: SkyMotion;
 }
+
+export type SkyMotion = "pop" | "pulse" | "shake" | "click" | "slide";
+
+export const SKY_MOTIONS: SkyMotion[] = ["pop", "pulse", "shake", "click", "slide"];
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {
 	x: 50,

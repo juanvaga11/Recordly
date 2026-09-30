@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildDecisionCountdown,
 	COUNTDOWN_LEAD_MS,
+	countdownSoundTimes,
 	DEFAULT_DECISION_COUNTDOWN,
 	nextFreeAnnotationTrack,
 } from "./decisionCountdown";
@@ -58,5 +59,25 @@ describe("buildDecisionCountdown", () => {
 	it("finds the next free track", () => {
 		expect(nextFreeAnnotationTrack([])).toBe(0);
 		expect(nextFreeAnnotationTrack(build(9 / 16))).toBe(6);
+	});
+
+	it("can show only the countdown, starting right away", () => {
+		const regions = buildDecisionCountdown(
+			{ ...DEFAULT_DECISION_COUNTDOWN, includeQuestion: false, startMs: 2000 },
+			9 / 16,
+			{ firstTrack: 0, firstZIndex: 1, idSeed: "c" },
+		);
+		expect(regions.map((r) => r.content)).toEqual(["3", "2", "1"]);
+		expect(regions[0]?.startMs).toBe(2000);
+	});
+
+	it("ticks every second and dings at the end", () => {
+		const times = countdownSoundTimes({ startMs: 10_000, seconds: 3 });
+		expect(times).toEqual([
+			{ soundId: "tic", startMs: 10_500 },
+			{ soundId: "tac", startMs: 11_500 },
+			{ soundId: "tic", startMs: 12_500 },
+			{ soundId: "ding", startMs: 13_500 },
+		]);
 	});
 });

@@ -691,6 +691,21 @@ interface Window {
 			error?: string;
 		}>;
 		skyMusicOpenFolder: () => Promise<{ success: boolean; folder: string; error?: string }>;
+		skySfxList: () => Promise<{
+			success: boolean;
+			folder: string;
+			sounds: Array<{
+				id: string;
+				name: string;
+				description: string;
+				category: string;
+				path: string;
+				durationMs: number;
+				builtIn: boolean;
+			}>;
+			error?: string;
+		}>;
+		skySfxOpenFolder: () => Promise<{ success: boolean; folder: string; error?: string }>;
 		skyGetMicCaptureMode: () => Promise<{ mode: "browser" | "native"; platform: string }>;
 		skySetMicCaptureMode: (
 			mode: "browser" | "native",

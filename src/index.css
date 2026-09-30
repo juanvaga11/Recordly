@@ -212,3 +212,41 @@
 .dark .dashboard-shell > .card { background-color: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%); }
 
 .dashboard-settings .custom-scrollbar { padding-inline: 0; scrollbar-gutter: auto !important; }
+
+/* SKY Academy: annotation motion in the editor preview (export uses src/lib/skyMotion.ts) */
+@keyframes skyPop {
+	0% { transform: scale(0.25); opacity: 0; }
+	35% { opacity: 1; }
+	70% { transform: scale(1.12); }
+	100% { transform: scale(1); opacity: 1; }
+}
+@keyframes skyPulse {
+	0%, 100% { transform: scale(1); }
+	25% { transform: scale(1.06); }
+	75% { transform: scale(0.94); }
+}
+@keyframes skyShake {
+	0% { transform: rotate(0); }
+	5% { transform: rotate(18deg); }
+	11% { transform: rotate(-14deg); }
+	17% { transform: rotate(10deg); }
+	23% { transform: rotate(-6deg); }
+	30% { transform: rotate(3deg); }
+	40%, 100% { transform: rotate(0); }
+}
+@keyframes skyClick {
+	0%, 100% { transform: scale(1); }
+	8% { transform: scale(0.86) translateY(4%); }
+	16% { transform: scale(1); }
+}
+@keyframes skySlide {
+	0% { transform: translateY(80%); opacity: 0; }
+	50% { opacity: 1; }
+	100% { transform: translateY(0); opacity: 1; }
+}
+.sky-motion { transform-origin: center; }
+.sky-motion-pop { animation: skyPop 380ms ease-out both; }
+.sky-motion-pulse { animation: skyPop 380ms ease-out both, skyPulse 900ms ease-in-out 380ms infinite; }
+.sky-motion-shake { animation: skyPop 380ms ease-out both, skyShake 1600ms ease-out 380ms infinite; }
+.sky-motion-click { animation: skyPop 380ms ease-out both, skyClick 1000ms ease-in-out 380ms infinite; }
+.sky-motion-slide { animation: skySlide 450ms ease-out both; }

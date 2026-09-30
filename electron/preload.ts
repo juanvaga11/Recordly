@@ -727,6 +727,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	skyMusicOpenFolder: () => {
 		return ipcRenderer.invoke("sky-music-open-folder");
 	},
+	skySfxList: () => {
+		return ipcRenderer.invoke("sky-sfx-list");
+	},
+	skySfxOpenFolder: () => {
+		return ipcRenderer.invoke("sky-sfx-open-folder");
+	},
 	skyGetMicCaptureMode: () => {
 		return ipcRenderer.invoke("sky-get-mic-capture-mode");
 	},

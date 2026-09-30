@@ -10,6 +10,7 @@ import { registerRecordingHandlers } from "./register/recording";
 import { registerSettingsHandlers } from "./register/settings";
 import { registerSkyMicModeHandlers } from "./register/skyMicMode";
 import { registerSkyMusicHandlers } from "./register/skyMusic";
+import { registerSkySfxHandlers } from "./register/skySfx";
 import { registerSourceHandlers } from "./register/sources";
 import {
 	selectedSource,
@@ -74,6 +75,7 @@ export function registerIpcHandlers(
 	registerCaptionHandlers();
 	registerSkyMusicHandlers();
 	registerSkyMicModeHandlers();
+	registerSkySfxHandlers();
 	registerCloudShareHandlers();
 	registerProjectHandlers();
 	registerSettingsHandlers();

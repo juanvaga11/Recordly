@@ -30,6 +30,8 @@ export interface DecisionCountdownInput {
 	startMs: number;
 	/** Where it sits vertically. */
 	place: "top" | "middle" | "bottom";
+	/** false = only the 3-2-1 circle (no question or options). */
+	includeQuestion?: boolean;
 }
 
 export const DEFAULT_DECISION_COUNTDOWN: Omit<DecisionCountdownInput, "startMs"> = {
@@ -38,6 +40,7 @@ export const DEFAULT_DECISION_COUNTDOWN: Omit<DecisionCountdownInput, "startMs">
 	optionB: "▼ VENTA",
 	seconds: 3,
 	place: "middle",
+	includeQuestion: true,
 };
 
 /** The question appears half a second before the countdown starts. */
@@ -46,6 +49,8 @@ export const SKY_COUNTDOWN_ID_PREFIX = "annotation-sky-exp";
 
 const BASE_WIDTH = 1920;
 const CHAR_WIDTH = 0.62;
+/** Bold capitals and ▲▼ are wider than average text. */
+const CAPS_CHAR_WIDTH = 0.78;
 
 const BASE_STYLE: Partial<AnnotationTextStyle> = {
 	fontFamily: SKY_FONT,
@@ -86,7 +91,8 @@ export function buildDecisionCountdown(
 	const scale = skyTextScale(frameAspect);
 	const seconds = Math.max(1, Math.min(10, Math.round(input.seconds || 3)));
 	const start = Math.max(0, Math.round(input.startMs));
-	const countdownStart = start + COUNTDOWN_LEAD_MS;
+	const withQuestion = input.includeQuestion !== false;
+	const countdownStart = countdownStartMs(input);
 	const end = countdownStart + seconds * 1000;
 	const seed = options.idSeed ?? Date.now();
 	let z = options.firstZIndex;
@@ -112,72 +118,76 @@ export function buildDecisionCountdown(
 		zIndex: z++,
 		trackIndex: track,
 		pinToFrame: true,
+		// every piece pops in; each number of the countdown pops on its second
+		skyMotion: "pop",
 	});
 
 	let top = blockTop(input.place, vertical);
 	const gap = vertical ? 1.2 : 2;
 
-	// 1. question
-	const questionFont = Math.round(40 * scale);
-	const question = input.question.trim() || DEFAULT_DECISION_COUNTDOWN.question;
-	const questionW = widthPercent(question.length * CHAR_WIDTH * questionFont + 80);
-	const questionH = heightPercent(questionFont * 1.5 + 40, frameAspect);
-	regions.push(
-		make(
-			"q",
-			question,
-			[start, end],
-			options.firstTrack,
-			{ x: round(50 - questionW / 2), y: top, width: questionW, height: questionH },
-			{
-				fontSize: questionFont,
-				color: "#FFFFFF",
-				borderRadius: 16,
-				boxFill: "rgba(10, 10, 10, 0.85)",
-				boxBorderColor: SKY_GOLD,
-				boxBorderWidth: 3,
-			},
-		),
-	);
-	top += questionH + gap;
-
-	// 2. options side by side (green / red)
-	const optionFont = Math.round(34 * scale);
-	const labels = [
-		input.optionA.trim() || DEFAULT_DECISION_COUNTDOWN.optionA,
-		input.optionB.trim() || DEFAULT_DECISION_COUNTDOWN.optionB,
-	];
-	const longest = Math.max(...labels.map((label) => label.length));
-	const optionW = widthPercent(longest * CHAR_WIDTH * optionFont + 70);
-	const optionH = heightPercent(optionFont * 1.5 + 30, frameAspect);
-	const pairGap = vertical ? 3 : 2;
-	const pairLeft = 50 - optionW - pairGap / 2;
-	labels.forEach((label, index) => {
-		const color = index === 0 ? SKY_GREEN : SKY_RED;
+	if (withQuestion) {
+		// 1. question
+		const questionFont = Math.round(40 * scale);
+		const question = input.question.trim() || DEFAULT_DECISION_COUNTDOWN.question;
+		const questionW = widthPercent(question.length * CHAR_WIDTH * questionFont + 80);
+		const questionH = heightPercent(questionFont * 1.5 + 40, frameAspect);
 		regions.push(
 			make(
-				index === 0 ? "a" : "b",
-				label,
+				"q",
+				question,
 				[start, end],
-				options.firstTrack + 1 + index,
+				options.firstTrack,
+				{ x: round(50 - questionW / 2), y: top, width: questionW, height: questionH },
 				{
-					x: round(pairLeft + index * (optionW + pairGap)),
-					y: round(top),
-					width: optionW,
-					height: optionH,
-				},
-				{
-					fontSize: optionFont,
+					fontSize: questionFont,
 					color: "#FFFFFF",
-					borderRadius: 14,
-					boxFill: color,
-					boxBorderColor: "rgba(255, 255, 255, 0.85)",
-					boxBorderWidth: 2,
+					borderRadius: 16,
+					boxFill: "rgba(10, 10, 10, 0.85)",
+					boxBorderColor: SKY_GOLD,
+					boxBorderWidth: 3,
 				},
 			),
 		);
-	});
-	top += optionH + gap;
+		top += questionH + gap;
+
+		// 2. options side by side (green / red)
+		const optionFont = Math.round(34 * scale);
+		const labels = [
+			input.optionA.trim() || DEFAULT_DECISION_COUNTDOWN.optionA,
+			input.optionB.trim() || DEFAULT_DECISION_COUNTDOWN.optionB,
+		];
+		const longest = Math.max(...labels.map((label) => label.length));
+		const optionW = widthPercent(longest * CAPS_CHAR_WIDTH * optionFont + 110);
+		const optionH = heightPercent(optionFont * 1.5 + 30, frameAspect);
+		const pairGap = vertical ? 3 : 2;
+		const pairLeft = 50 - optionW - pairGap / 2;
+		labels.forEach((label, index) => {
+			const color = index === 0 ? SKY_GREEN : SKY_RED;
+			regions.push(
+				make(
+					index === 0 ? "a" : "b",
+					label,
+					[start, end],
+					options.firstTrack + 1 + index,
+					{
+						x: round(pairLeft + index * (optionW + pairGap)),
+						y: round(top),
+						width: optionW,
+						height: optionH,
+					},
+					{
+						fontSize: optionFont,
+						color: "#FFFFFF",
+						borderRadius: 14,
+						boxFill: color,
+						boxBorderColor: "rgba(255, 255, 255, 0.85)",
+						boxBorderWidth: 2,
+					},
+				),
+			);
+		});
+		top += optionH + gap;
+	}
 
 	// 3. countdown numbers in a gold circle, one per second
 	const circlePx = 150 * scale;
@@ -205,6 +215,31 @@ export function buildDecisionCountdown(
 	}
 
 	return regions;
+}
+
+/** When the first number shows, in timeline ms. */
+export function countdownStartMs(
+	input: Pick<DecisionCountdownInput, "startMs" | "includeQuestion">,
+) {
+	const start = Math.max(0, Math.round(input.startMs));
+	return input.includeQuestion === false ? start : start + COUNTDOWN_LEAD_MS;
+}
+
+/**
+ * Sounds for the countdown: tic / tac on every number and a "ding" when it
+ * reaches the end (the moment to reveal the answer).
+ */
+export function countdownSoundTimes(
+	input: Pick<DecisionCountdownInput, "startMs" | "includeQuestion" | "seconds">,
+): Array<{ soundId: "tic" | "tac" | "ding"; startMs: number }> {
+	const seconds = Math.max(1, Math.min(10, Math.round(input.seconds || 3)));
+	const first = countdownStartMs(input);
+	const times: Array<{ soundId: "tic" | "tac" | "ding"; startMs: number }> = [];
+	for (let i = 0; i < seconds; i++) {
+		times.push({ soundId: i % 2 === 0 ? "tic" : "tac", startMs: first + i * 1000 });
+	}
+	times.push({ soundId: "ding", startMs: first + seconds * 1000 });
+	return times;
 }
 
 /** Next free annotation track so the countdown never overlaps other layers. */

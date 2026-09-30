@@ -19,6 +19,8 @@ import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMoti
 import {
 	ADVANCED_VERTICAL_PADDING_MAX,
 	type AnnotationRegion,
+	SKY_MOTIONS,
+	type SkyMotion,
 	type AudioRegion,
 	type AutoCaptionAnimation,
 	type AutoCaptionSettings,
@@ -645,6 +647,9 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						blurColor:
 							typeof region.blurColor === "string" ? region.blurColor : undefined,
 						pinToFrame: region.pinToFrame === true ? true : undefined,
+						skyMotion: SKY_MOTIONS.includes(region.skyMotion as SkyMotion)
+							? region.skyMotion
+							: undefined,
 						trackIndex: isFiniteNumber(region.trackIndex)
 							? Math.max(0, Math.floor(region.trackIndex))
 							: 0,

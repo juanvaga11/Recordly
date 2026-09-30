@@ -40,6 +40,8 @@ import type { VideoPlaybackRef } from "../VideoPlayback";
 import { MusicMenu } from "../sky/MusicMenu";
 import { ExpectationMenu } from "../sky/ExpectationMenu";
 import { ReelDesignMenu } from "../sky/ReelDesignMenu";
+import { SoundMenu } from "../sky/SoundMenu";
+import { StickerMenu } from "../sky/StickerMenu";
 import { ZoomMenu } from "../sky/ZoomMenu";
 import { EditorVideoPreview } from "./EditorVideoPreview";
 
@@ -120,6 +122,14 @@ export function EditorPreviewPanel(props: Props) {
 		setIsPlaying,
 		setError,
 	} = props;
+
+	/** Visible recording after crop (width / height): chart stickers keep their shape on it. */
+	const getChartAspect = () => {
+		const video = videoPlaybackRef.current?.video;
+		const crop = appearance.cropRegion;
+		if (!video || !video.videoWidth || !video.videoHeight) return 16 / 9;
+		return (video.videoWidth * crop.width) / Math.max(1, video.videoHeight * crop.height);
+	};
 
 	return (
 		<div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -258,15 +268,29 @@ export function EditorPreviewPanel(props: Props) {
 					setAudioRegions={timeline.setAudioRegions}
 					timelineDuration={projection.timelineDuration}
 				/>
+				<SoundMenu
+					audioRegions={timeline.audioRegions}
+					setAudioRegions={timeline.setAudioRegions}
+					playheadSeconds={projection.timelinePlayheadTime}
+				/>
 				<ZoomMenu
 					zoomRegions={timeline.zoomRegions}
 					setZoomRegions={timeline.setZoomRegions}
 					timelineDuration={projection.timelineDuration}
 					onSuggestZooms={() => timelineRef.current?.suggestZooms()}
 				/>
+				<StickerMenu
+					annotationRegions={timeline.annotationRegions}
+					setAnnotationRegions={timeline.setAnnotationRegions}
+					setAudioRegions={timeline.setAudioRegions}
+					playheadSeconds={projection.timelinePlayheadTime}
+					frameAspect={previewAspectRatioValue}
+					chartAspect={getChartAspect()}
+				/>
 				<ExpectationMenu
 					annotationRegions={timeline.annotationRegions}
 					setAnnotationRegions={timeline.setAnnotationRegions}
+					setAudioRegions={timeline.setAudioRegions}
 					playheadSeconds={projection.timelinePlayheadTime}
 					frameAspect={previewAspectRatioValue}
 				/>

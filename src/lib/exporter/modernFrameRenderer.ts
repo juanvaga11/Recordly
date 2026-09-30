@@ -81,6 +81,7 @@ import {
 	destroyPixiApplication,
 	initializePixiApplicationWithTimeout,
 } from "@/lib/pixiApplicationLifecycle";
+import { computeSkyMotion } from "@/lib/skyMotion";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
 import {
 	type AnnotationRenderAssets,
@@ -220,6 +221,8 @@ interface AnnotationSpriteEntry {
 	annotation: AnnotationRegion;
 	sprite: Sprite;
 	texture: Texture;
+	/** Center and height of the resting sprite (SKY motion animates around it). */
+	center?: { x: number; y: number; height: number };
 }
 
 interface ExportCompositeCanvasState {
@@ -1593,14 +1596,22 @@ export class FrameRenderer {
 
 			const texture = Texture.from(canvas);
 			const sprite = new Sprite(texture);
-			sprite.position.set(x, y);
+			const center = annotation.skyMotion
+				? { x: x + width / 2, y: y + height / 2, height }
+				: undefined;
+			if (center) {
+				sprite.anchor.set(0.5);
+				sprite.position.set(center.x, center.y);
+			} else {
+				sprite.position.set(x, y);
+			}
 			sprite.visible = false;
 			if (annotation.pinToFrame && this.pinnedAnnotationContainer) {
 				this.pinnedAnnotationContainer.addChild(sprite);
 			} else {
 				this.annotationContainer.addChild(sprite);
 			}
-			this.annotationSprites.push({ annotation, sprite, texture });
+			this.annotationSprites.push({ annotation, sprite, texture, center });
 		}
 	}
 
@@ -1609,6 +1620,19 @@ export class FrameRenderer {
 			entry.sprite.visible =
 				currentTimeMs >= entry.annotation.startMs &&
 				currentTimeMs <= entry.annotation.endMs;
+			if (entry.center && entry.sprite.visible) {
+				const motion = computeSkyMotion(
+					entry.annotation.skyMotion,
+					currentTimeMs - entry.annotation.startMs,
+				);
+				entry.sprite.scale.set(motion.scale);
+				entry.sprite.rotation = motion.rotation;
+				entry.sprite.alpha = motion.alpha;
+				entry.sprite.position.set(
+					entry.center.x,
+					entry.center.y + motion.offsetY * entry.center.height,
+				);
+			}
 		}
 	}
 
