@@ -1,11 +1,10 @@
 import { type Dispatch, type SetStateAction, useCallback, useMemo, useState } from "react";
-import { toast } from "@/components/ui/toast";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { type EditorPresetSnapshot, loadEditorPresets } from "../editorPreferences";
 import type { useExportSettings } from "../export/useExportSettings";
 import type { useAppearanceState } from "../state/useAppearanceState";
 import type { useTimelineState } from "../state/useTimelineState";
-import { buildSkyReelLayout, buildSkyReelWebcam } from "../sky/skyPresets";
+import { applySkyReelLayout } from "../sky/applySkyReel";
 import { useEditorPresets } from "./useEditorPresets";
 
 type Input = {
@@ -174,25 +173,8 @@ export function useVideoEditorPresets({
 
 	/** SKY Academy: one click vertical 9:16 layout for Reels / TikTok / Shorts. */
 	const handleApplySkyReelPreset = useCallback(() => {
-		const layout = buildSkyReelLayout({
-			padding: appearance.padding,
-			cropRegion: appearance.cropRegion,
-			webcam: appearance.webcam,
-			wallpaper: appearance.wallpaper,
-			borderRadius: appearance.borderRadius,
-		});
-		// Functional update so the recorded webcam source is never lost.
-		appearance.setWebcam((current) => buildSkyReelWebcam(current));
-		appearance.setPadding(layout.padding);
-		appearance.setCropRegion(layout.cropRegion);
-		appearance.setBorderRadius(layout.borderRadius);
-		appearance.setWallpaper(layout.wallpaper);
-		setAspectRatio(layout.aspectRatio);
+		applySkyReelLayout(appearance, setAspectRatio);
 		setPresetPopoverOpen(false);
-		toast.success("Vertical para Reels aplicado", {
-			description:
-				"Ajusta el recorte con “Recortar video” si quieres otra parte del gráfico.",
-		});
 	}, [appearance, setAspectRatio]);
 
 	const actions = useEditorPresets({

@@ -70,6 +70,8 @@ interface UseTimelineEditorRuntimeParams {
 	isMac: boolean;
 	keyShortcuts: TimelineShortcutBindings;
 	isTimelineFocusedRef: RefObject<boolean | null>;
+	/** SKY Academy: detect pauses in the voice and cut them from the timeline. */
+	removeSilences?: () => void;
 }
 
 export function useTimelineEditorRuntime({
@@ -120,6 +122,7 @@ export function useTimelineEditorRuntime({
 	isMac,
 	keyShortcuts,
 	isTimelineFocusedRef,
+	removeSilences,
 }: UseTimelineEditorRuntimeParams) {
 	const {
 		keyframes,
@@ -295,9 +298,11 @@ export function useTimelineEditorRuntime({
 			splitClip: handleSplitClip,
 			addAnnotation: handleAddAnnotation,
 			addAudio: handleAddAudio,
+			removeSilences: removeSilences ?? (() => undefined),
 			keyframes,
 		}),
 		[
+			removeSilences,
 			handleAddAnnotation,
 			handleAddAudio,
 			handleAddZoom,

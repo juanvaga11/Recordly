@@ -1,6 +1,6 @@
 import { Plus } from "@/components/ui/icons";
 import type { Span } from "dnd-timeline";
-import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
 	SourceAudioTrackMeta,
 	SourceAudioTrackSettings,
@@ -24,6 +24,8 @@ import TimelineCanvas from "./components/viewport/TimelineCanvas";
 import TimelineWrapper from "./components/wrapper/TimelineWrapper";
 import { calculateTimelineScale } from "./core/time";
 import type { ClipSequenceSpan } from "./core/timelineTypes";
+import { toast } from "@/components/ui/toast";
+import { detectSilences, type SilenceCutPlan, type TimeSpan } from "../sky/silenceCut";
 import { useTimelineAudioPeaks } from "./hooks/useTimelineAudioPeaks";
 import { useTimelineEditorRuntime } from "./hooks/useTimelineEditorRuntime";
 import { useTimelineRange } from "./hooks/useTimelineRange";
@@ -87,6 +89,8 @@ export interface TimelineEditorProps {
 	sourceAudioTrackSettings?: SourceAudioTrackSettings;
 	getSourceAudioTrackSettingsForClip?: (clipId: string | null) => SourceAudioTrackSettings;
 	onSourceAudioTracksMetaChange?: (tracks: SourceAudioTrackMeta) => void;
+	/** SKY Academy: cut these source-time pauses from the timeline. */
+	onRemoveSilences?: (silences: TimeSpan[]) => SilenceCutPlan | null;
 }
 
 function extractLocalPathFromMediaServerUrl(input: string | null | undefined): string | null {
@@ -110,6 +114,8 @@ export interface TimelineEditorHandle {
 	splitClip: () => void;
 	addAnnotation: (trackIndex?: number) => void;
 	addAudio: (trackIndex?: number) => Promise<void>;
+	/** SKY Academy: cut the pauses in the voice. */
+	removeSilences: () => void;
 	keyframes: { id: string; time: number }[];
 }
 
@@ -170,6 +176,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			sourceAudioTrackSettings = {},
 			getSourceAudioTrackSettingsForClip,
 			onSourceAudioTracksMetaChange,
+			onRemoveSilences,
 		},
 		ref,
 	) {
@@ -330,6 +337,27 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			onSourceAudioAvailabilityChange?.(sourceAudioTracks.length > 0);
 		}, [onSourceAudioAvailabilityChange, sourceAudioTracks.length]);
 
+		// SKY Academy: the mic track is the cleanest signal for the voice; fall back
+		// to the mixed recording when there is no separate mic file.
+		const handleRemoveSilences = useCallback(() => {
+			const voice = micSidecarPeaks ?? sourceAudioPeaks;
+			if (!onRemoveSilences) return;
+			if (!voice || voice.peaks.length === 0) {
+				toast.error("Este video no tiene audio para detectar silencios");
+				return;
+			}
+			const silences = detectSilences(voice.peaks, voice.durationMs);
+			const plan = silences.length > 0 ? onRemoveSilences(silences) : null;
+			if (!plan) {
+				toast.success("No encontré pausas largas para cortar");
+				return;
+			}
+			toast.success(
+				`Se cortaron ${plan.removedCount} pausas (${(plan.removedMs / 1000).toFixed(1)} s)`,
+				{ description: "Revise el video. Si cortó algo que quería, deshaga con Ctrl+Z." },
+			);
+		}, [micSidecarPeaks, onRemoveSilences, sourceAudioPeaks]);
+
 		const {
 			keyframes,
 			selectedKeyframeId,
@@ -401,6 +429,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			isMac,
 			keyShortcuts,
 			isTimelineFocusedRef,
+			removeSilences: handleRemoveSilences,
 		});
 
 		if (!videoDuration || videoDuration === 0) {

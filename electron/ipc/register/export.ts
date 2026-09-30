@@ -37,6 +37,7 @@ import {
 	settleNativeVideoExportWriteFrameRequest,
 } from "../export/native-video";
 import { getFfmpegBinaryPath } from "../ffmpeg/binary";
+import { normalizeExportLoudness } from "../ffmpeg/skyLoudness";
 import {
 	buildNativeH264StreamExportArgs,
 	buildNativeVideoExportArgs,
@@ -244,6 +245,24 @@ function isTempPathSafe(tempPath: string): boolean {
 	}
 	const withSep = tempRoot.endsWith(path.sep) ? tempRoot : tempRoot + path.sep;
 	return candidate.startsWith(withSep);
+}
+
+/** SKY Academy: voice at social-media loudness (-14 LUFS). Best effort, never throws. */
+async function applySkyLoudness(filePath: string) {
+	try {
+		const result = await normalizeExportLoudness(filePath, getFfmpegBinaryPath());
+		console.log("[sky-loudness]", filePath, result);
+	} catch (error) {
+		console.warn("[sky-loudness] failed:", error);
+	}
+}
+
+/** Bring the editor to the front so the save dialog never opens hidden behind it. */
+function focusForSaveDialog(parentWindow: BrowserWindow | null) {
+	if (!parentWindow || parentWindow.isDestroyed()) return;
+	if (parentWindow.isMinimized()) parentWindow.restore();
+	parentWindow.show();
+	parentWindow.focus();
 }
 
 export function registerExportHandlers() {
@@ -874,6 +893,7 @@ export function registerExportHandlers() {
 					properties: ["createDirectory", "showOverwriteConfirmation"],
 				};
 
+				focusForSaveDialog(parentWindow);
 				const result = parentWindow
 					? await dialog.showSaveDialog(parentWindow, saveDialogOptions)
 					: await dialog.showSaveDialog(saveDialogOptions);
@@ -887,6 +907,7 @@ export function registerExportHandlers() {
 				}
 
 				await fs.writeFile(result.filePath, Buffer.from(videoData));
+				await applySkyLoudness(result.filePath);
 				const captionSidecarResult = await writeCaptionSidecarsBestEffort(
 					result.filePath,
 					sidecarPayload,
@@ -935,6 +956,7 @@ export function registerExportHandlers() {
 				const resolvedPath = path.resolve(outputPath);
 				await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
 				await fs.writeFile(resolvedPath, Buffer.from(videoData));
+				await applySkyLoudness(resolvedPath);
 				const captionSidecarResult = await writeCaptionSidecarsBestEffort(
 					resolvedPath,
 					sidecarPayload,
@@ -1001,6 +1023,7 @@ export function registerExportHandlers() {
 					const resolvedPath = path.resolve(payload.outputPath);
 					await moveExportedTempFile(tempPath, resolvedPath);
 					releaseOwnedExportPath(tempPath);
+					await applySkyLoudness(resolvedPath);
 					const captionSidecarResult = await writeCaptionSidecarsBestEffort(
 						resolvedPath,
 						sidecarPayload,
@@ -1029,6 +1052,7 @@ export function registerExportHandlers() {
 					properties: ["createDirectory", "showOverwriteConfirmation"],
 				};
 
+				focusForSaveDialog(parentWindow);
 				const result = parentWindow
 					? await dialog.showSaveDialog(parentWindow, saveDialogOptions)
 					: await dialog.showSaveDialog(saveDialogOptions);
@@ -1045,6 +1069,7 @@ export function registerExportHandlers() {
 
 				await moveExportedTempFile(tempPath, result.filePath);
 				releaseOwnedExportPath(tempPath);
+				await applySkyLoudness(result.filePath);
 				const captionSidecarResult = await writeCaptionSidecarsBestEffort(
 					result.filePath,
 					sidecarPayload,

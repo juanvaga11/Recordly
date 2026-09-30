@@ -10,6 +10,7 @@ import {
 } from "../clipSequence";
 import { getClipSourceStartMs, type AnnotationRegion, type AudioRegion } from "../types";
 import { planClipSplit } from "../clipSplit";
+import { planSilenceCut, type SilenceCutPlan, type TimeSpan } from "../sky/silenceCut";
 import type { ClipRegion, EditorEffectSection, ZoomRegion } from "../types";
 import { supportsPreviewPlaybackRate } from "../videoPlayback/playbackRate";
 
@@ -186,6 +187,34 @@ export function useClipRegionCommands({
 		[selectedClipId, setClipRegions],
 	);
 
+	/** SKY Academy: drop the given source-time pauses and ripple everything after them. */
+	const handleRemoveSilences = useCallback(
+		(silences: TimeSpan[]): SilenceCutPlan | null => {
+			const plan = planSilenceCut(
+				clipRegions,
+				silences,
+				() => `clip-${nextClipIdRef.current++}`,
+			);
+			if (!plan) return null;
+			const next = packClipSequence(plan.kept);
+			setClipRegions(next);
+			setZoomRegions((current) => rippleRegions(current, plan.split, next));
+			setAnnotationRegions((current) => rippleRegions(current, plan.split, next));
+			setAudioRegions((current) => rippleRegionAnchors(current, plan.split, next));
+			setSelectedClipId(null);
+			return plan;
+		},
+		[
+			clipRegions,
+			nextClipIdRef,
+			setClipRegions,
+			setZoomRegions,
+			setAnnotationRegions,
+			setAudioRegions,
+			setSelectedClipId,
+		],
+	);
+
 	const handleClipDelete = useCallback(
 		(id: string) => {
 			applySequence(clipRegions.filter((clip) => clip.id !== id));
@@ -195,6 +224,7 @@ export function useClipRegionCommands({
 	);
 
 	return {
+		handleRemoveSilences,
 		handleSelectClip,
 		handleClipSplit,
 		handleClipSpanChange,
