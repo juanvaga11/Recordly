@@ -1,3 +1,4 @@
+import type React from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,8 @@ import type { useAppearanceState } from "../state/useAppearanceState";
 import {
 	applyCameraShape,
 	buildReelTemplate,
+	type CameraCorner,
+	moveCameraToCorner,
 	type CameraShape,
 	chartPositionToPadding,
 	getCameraShape,
@@ -33,11 +36,18 @@ const BAND_COLORS: Record<ReelTemplate["bands"][number]["kind"], string> = {
 	chart: "#1f6f5c",
 	camera: SKY_GOLD,
 	free: "rgba(255,255,255,0.08)",
+	logo: "radial-gradient(circle, #D4AF37 0 22%, #0A0A0A 60%)",
+};
+
+const DOT_POSITION: Record<NonNullable<ReelTemplate["cameraDot"]>, React.CSSProperties> = {
+	"top-left": { left: 3, top: 3 },
+	"bottom-left": { left: 3, bottom: 3 },
+	"mid-left": { left: 3, top: "34%" },
 };
 
 function TemplatePreview({ template }: { template: ReelTemplate }) {
 	const total = template.bands.reduce((sum, band) => sum + band.size, 0);
-	const isCorner = template.id === "camera-corner";
+
 	return (
 		<div className="relative flex h-16 w-9 shrink-0 flex-col overflow-hidden rounded-[5px] border border-foreground/15 bg-[#0A0A0A]">
 			{template.bands.map((band, index) => (
@@ -50,10 +60,10 @@ function TemplatePreview({ template }: { template: ReelTemplate }) {
 					}}
 				/>
 			))}
-			{isCorner ? (
+			{template.cameraDot ? (
 				<span
-					className="absolute h-3 w-3 rounded-full"
-					style={{ left: 3, top: "34%", background: SKY_GOLD }}
+					className="absolute h-3 w-3 rounded-full border border-black/40"
+					style={{ ...DOT_POSITION[template.cameraDot], background: "#8a7a5a" }}
 				/>
 			) : null}
 		</div>
@@ -84,6 +94,7 @@ export function ReelDesignMenu({ appearance, setAspectRatio }: ReelDesignMenuPro
 		appearance.setCropRegion(layout.cropRegion);
 		appearance.setBorderRadius(layout.borderRadius);
 		appearance.setWallpaper(layout.wallpaper);
+		appearance.setBackgroundBlur(layout.backgroundBlur);
 		setAspectRatio(layout.aspectRatio);
 		const template = REEL_TEMPLATES.find((item) => item.id === id);
 		toast.success(`Diseño "${template?.label ?? "Reel"}" aplicado`, {
@@ -182,6 +193,32 @@ export function ReelDesignMenu({ appearance, setAspectRatio }: ReelDesignMenuPro
 									)}
 								>
 									{label}
+								</button>
+							))}
+						</div>
+						<div className="mb-3 grid grid-cols-4 gap-1.5">
+							{(
+								[
+									["top-left", "↖"],
+									["top-right", "↗"],
+									["bottom-left", "↙"],
+									["bottom-right", "↘"],
+								] as Array<[CameraCorner, string]>
+							).map(([corner, arrow]) => (
+								<button
+									key={corner}
+									type="button"
+									title="Mover la cámara a esta esquina"
+									aria-pressed={webcam.positionPreset === corner}
+									onClick={() => updateWebcam(moveCameraToCorner(corner))}
+									className={cn(
+										"h-8 rounded-lg border text-sm font-semibold transition-colors",
+										webcam.positionPreset === corner
+											? "border-[#D4AF37] bg-[#D4AF37]/15 text-foreground"
+											: "border-foreground/10 bg-foreground/[0.04] text-muted-foreground",
+									)}
+								>
+									{arrow}
 								</button>
 							))}
 						</div>

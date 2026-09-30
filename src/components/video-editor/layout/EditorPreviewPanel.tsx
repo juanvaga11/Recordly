@@ -37,6 +37,7 @@ import type { useAppearanceState } from "../state/useAppearanceState";
 import type { useTimelineState } from "../state/useTimelineState";
 import type { TimelineEditorHandle } from "../timeline/TimelineEditor";
 import type { VideoPlaybackRef } from "../VideoPlayback";
+import { MusicMenu } from "../sky/MusicMenu";
 import { ReelDesignMenu } from "../sky/ReelDesignMenu";
 import { EditorVideoPreview } from "./EditorVideoPreview";
 
@@ -283,6 +284,11 @@ export function EditorPreviewPanel(props: Props) {
 						<Scissors className="h-4 w-4" style={{ color: "#D4AF37" }} />
 						Silencios
 					</Button>
+					<MusicMenu
+						audioRegions={timeline.audioRegions}
+						setAudioRegions={timeline.setAudioRegions}
+						timelineDuration={projection.timelineDuration}
+					/>
 					<Button
 						onClick={() => timelineRef.current?.addZoom()}
 						variant="ghost"

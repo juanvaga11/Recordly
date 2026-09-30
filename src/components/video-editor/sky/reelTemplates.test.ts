@@ -7,6 +7,7 @@ import {
 	buildReelTemplate,
 	chartPositionToPadding,
 	getCameraShape,
+	moveCameraToCorner,
 	paddingToChartPosition,
 	REEL_TEMPLATES,
 	type ReelTemplateId,
@@ -134,5 +135,31 @@ describe("reel controls", () => {
 		expect(scaleCamera(cam, 1.5)).toEqual({ width: 60, height: 45, size: 60 });
 		expect(scaleCamera(cam, 10).width).toBeLessThanOrEqual(100);
 		expect(scaleCamera(cam, 0.01).height).toBeGreaterThanOrEqual(10);
+	});
+});
+
+describe("logo loop templates", () => {
+	it("chart on top with the logo loop below and a small camera in a corner", () => {
+		const { layout, chart, camera } = geometry("chart-logo");
+		expect(layout.wallpaper).toBe("/wallpapers/sky-logo-abajo.mp4");
+		expect(layout.backgroundBlur).toBe(0);
+		expect(chart.top).toBeCloseTo(0, 0);
+		expect(layout.webcam.roundness).toBe(100);
+		expect(camera.top).toBeLessThan(40);
+		expect(camera.left).toBeLessThan(40);
+		// the camera stays on the chart, the logo band below is free
+		expect(camera.bottom).toBeLessThan(chart.bottom);
+	});
+
+	it("logo loop on top with the chart below", () => {
+		const { layout, chart, camera } = geometry("logo-chart");
+		expect(layout.wallpaper).toBe("/wallpapers/sky-logo-arriba.mp4");
+		expect(chart.bottom).toBeCloseTo(FRAME.height, 0);
+		expect(camera.top).toBeGreaterThan(chart.top);
+	});
+
+	it("moves the camera to any corner", () => {
+		expect(moveCameraToCorner("top-right")).toMatchObject({ positionX: 1, positionY: 0 });
+		expect(moveCameraToCorner("bottom-left")).toMatchObject({ positionX: 0, positionY: 1 });
 	});
 });

@@ -721,6 +721,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	openAudioFilePicker: () => {
 		return ipcRenderer.invoke("open-audio-file-picker");
 	},
+	skyMusicList: () => {
+		return ipcRenderer.invoke("sky-music-list");
+	},
+	skyMusicOpenFolder: () => {
+		return ipcRenderer.invoke("sky-music-open-folder");
+	},
 	openWhisperExecutablePicker: () => {
 		return ipcRenderer.invoke("open-whisper-executable-picker");
 	},

@@ -684,6 +684,13 @@ interface Window {
 			error?: string;
 		}>;
 		openAudioFilePicker: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>;
+		skyMusicList: () => Promise<{
+			success: boolean;
+			folder: string;
+			tracks: Array<{ name: string; path: string; folder: string; sizeBytes: number }>;
+			error?: string;
+		}>;
+		skyMusicOpenFolder: () => Promise<{ success: boolean; folder: string; error?: string }>;
 		openWhisperExecutablePicker: () => Promise<{
 			success: boolean;
 			path?: string;

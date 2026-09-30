@@ -16,6 +16,9 @@ export const BUILT_IN_WALLPAPERS: BuiltInWallpaper[] = [
 	createWallpaperEntry("sky-grafico.jpg", "SKY Gráfico"),
 	createWallpaperEntry("sky-carbono.jpg", "SKY Carbono"),
 	createWallpaperEntry("sky-oro-liquido.jpg", "SKY Oro Líquido"),
+	// looping JulianVal.fx logo animation in the lower / upper half (Reels 9:16)
+	createWallpaperEntry("sky-logo-abajo.mp4", "SKY Logo abajo"),
+	createWallpaperEntry("sky-logo-arriba.mp4", "SKY Logo arriba"),
 	createWallpaperEntry("midnight-8.jpg", "Midnight 8"),
 	createWallpaperEntry("ipad-17-dark.jpg", "iPad 17 Dark"),
 	createWallpaperEntry("ipad-17-light.jpg", "iPad 17 Light"),

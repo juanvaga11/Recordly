@@ -21,7 +21,7 @@ describe("wallpapers", () => {
 		expect(DEFAULT_WALLPAPER_RELATIVE_PATH).toBe("wallpapers/tahoe-light.jpg");
 		expect(BUILT_IN_WALLPAPERS.at(0)?.publicPath).toBe(DEFAULT_WALLPAPER_PATH);
 		expect(BUILT_IN_WALLPAPERS.at(1)?.publicPath).toBe("/wallpapers/tahoe-dark.jpg");
-		expect(BUILT_IN_WALLPAPERS).toHaveLength(29);
+		expect(BUILT_IN_WALLPAPERS).toHaveLength(31);
 	});
 
 	it("preserves the curated order when asset discovery returns extra files", async () => {
@@ -43,13 +43,13 @@ describe("wallpapers", () => {
 		});
 
 		await expect(getAvailableWallpapers()).resolves.toEqual([
-			// +4: the SKY Academy wallpapers sit right after the two Tahoe defaults
-			BUILT_IN_WALLPAPERS[6],
+			// +6: the SKY Academy wallpapers sit right after the two Tahoe defaults
 			BUILT_IN_WALLPAPERS[8],
-			BUILT_IN_WALLPAPERS[19],
-			BUILT_IN_WALLPAPERS[20],
-			BUILT_IN_WALLPAPERS[27],
-			BUILT_IN_WALLPAPERS[28],
+			BUILT_IN_WALLPAPERS[10],
+			BUILT_IN_WALLPAPERS[21],
+			BUILT_IN_WALLPAPERS[22],
+			BUILT_IN_WALLPAPERS[29],
+			BUILT_IN_WALLPAPERS[30],
 		]);
 	});
 

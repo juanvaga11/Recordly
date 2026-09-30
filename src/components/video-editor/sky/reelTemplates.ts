@@ -15,14 +15,26 @@ import {
 } from "../types";
 import { SKY_REEL_CROP, SKY_WALLPAPER } from "./skyPresets";
 
-export type ReelTemplateId = "chart-top" | "camera-top" | "camera-corner" | "chart-center";
+export type ReelTemplateId =
+	| "chart-top"
+	| "camera-top"
+	| "camera-corner"
+	| "chart-center"
+	| "chart-logo"
+	| "logo-chart";
+
+/** Looping JulianVal.fx logo animation placed in the free half of a 9:16 frame. */
+export const SKY_LOGO_LOOP_BOTTOM = "/wallpapers/sky-logo-abajo.mp4";
+export const SKY_LOGO_LOOP_TOP = "/wallpapers/sky-logo-arriba.mp4";
 
 export interface ReelTemplate {
 	id: ReelTemplateId;
 	label: string;
 	description: string;
 	/** Tiny diagram for the picker: top → bottom, "chart" | "camera" | "free". */
-	bands: Array<{ kind: "chart" | "camera" | "free"; size: number }>;
+	bands: Array<{ kind: "chart" | "camera" | "free" | "logo"; size: number }>;
+	/** Where the small round camera sits in the diagram (corner templates). */
+	cameraDot?: "top-left" | "bottom-left" | "mid-left";
 }
 
 export const REEL_TEMPLATES: ReelTemplate[] = [
@@ -52,6 +64,29 @@ export const REEL_TEMPLATES: ReelTemplate[] = [
 			{ kind: "chart", size: 1 },
 			{ kind: "free", size: 1 },
 		],
+		cameraDot: "mid-left",
+	},
+	{
+		id: "chart-logo",
+		label: "Gráfico + logo",
+		description:
+			"Gráfico arriba, su logo animado en bucle abajo y la cámara pequeña en una esquina",
+		bands: [
+			{ kind: "chart", size: 1 },
+			{ kind: "logo", size: 1 },
+		],
+		cameraDot: "top-left",
+	},
+	{
+		id: "logo-chart",
+		label: "Logo + gráfico",
+		description:
+			"Su logo animado en bucle arriba, el gráfico abajo y la cámara pequeña en una esquina",
+		bands: [
+			{ kind: "logo", size: 1 },
+			{ kind: "chart", size: 1 },
+		],
+		cameraDot: "bottom-left",
 	},
 	{
 		id: "chart-center",
@@ -69,6 +104,8 @@ export type CameraShape = "circle" | "rounded" | "rectangle";
 
 export interface ReelLayout {
 	aspectRatio: AspectRatio;
+	/** Wallpaper blur; logo loops must stay sharp. */
+	backgroundBlur: number;
 	padding: Padding;
 	cropRegion: CropRegion;
 	borderRadius: number;
@@ -128,6 +165,7 @@ export function buildReelTemplate(
 		cropRegion,
 		borderRadius: 0,
 		wallpaper: SKY_WALLPAPER,
+		backgroundBlur: 0,
 	};
 
 	switch (id) {
@@ -189,6 +227,31 @@ export function buildReelTemplate(
 					roundness: 100,
 					shadow: 0.4,
 					margin,
+					reactToZoom: false,
+				},
+			};
+		}
+		case "chart-logo":
+		case "logo-chart": {
+			const chartOnTop = id === "chart-logo";
+			const size = 30;
+			return {
+				...base,
+				wallpaper: chartOnTop ? SKY_LOGO_LOOP_BOTTOM : SKY_LOGO_LOOP_TOP,
+				padding: chartPositionToPadding(chartOnTop ? 0 : 1),
+				webcam: {
+					...currentWebcam,
+					// over the oldest candles (left side) so the latest price stays visible
+					positionPreset: chartOnTop ? "top-left" : "bottom-left",
+					corner: chartOnTop ? "top-left" : "bottom-left",
+					positionX: 0,
+					positionY: chartOnTop ? 0 : 1,
+					size,
+					width: size,
+					height: size,
+					roundness: 100,
+					shadow: 0.4,
+					margin: 24,
 					reactToZoom: false,
 				},
 			};
@@ -258,4 +321,16 @@ export function scaleCamera(
 	}
 	const round = (value: number) => Math.round(value * 10) / 10;
 	return { width: round(width), height: round(height), size: round(width) };
+}
+
+export type CameraCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+
+/** Snaps the camera to a corner of the frame (keeps size and shape). */
+export function moveCameraToCorner(corner: CameraCorner): Partial<WebcamOverlaySettings> {
+	return {
+		positionPreset: corner,
+		corner,
+		positionX: corner.endsWith("right") ? 1 : 0,
+		positionY: corner.startsWith("bottom") ? 1 : 0,
+	};
 }
