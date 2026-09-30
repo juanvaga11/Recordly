@@ -6,9 +6,9 @@ import { packClipSequence, rippleRegionAnchors, rippleRegions } from "../clipSeq
 import {
 	type ZoomRegion,
 	sortClipRegions,
-	DEFAULT_AUTO_ZOOM_DEPTH,
 	clampFocusToDepth,
 } from "../types";
+import { getPreferredZoomDepth } from "../sky/skyZoom";
 import { buildInteractionZoomSuggestions } from "../timeline/zoomSuggestionUtils";
 import type { useProjectState } from "../state/useProjectState";
 import type { useTimelineState } from "../state/useTimelineState";
@@ -173,8 +173,8 @@ export function useRecordingLibrary(
 							id: `zoom-${initial.ui.nextZoomIdRef.current++}`,
 							startMs: offset + zoom.start,
 							endMs: offset + zoom.end,
-							depth: DEFAULT_AUTO_ZOOM_DEPTH,
-							focus: clampFocusToDepth(zoom.focus, DEFAULT_AUTO_ZOOM_DEPTH),
+							depth: getPreferredZoomDepth(),
+							focus: clampFocusToDepth(zoom.focus, getPreferredZoomDepth()),
 							mode: "auto" as const,
 						})),
 					);

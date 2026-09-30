@@ -1,9 +1,8 @@
 import type { Span } from "dnd-timeline";
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
+import { getPreferredZoomDepth } from "../sky/skyZoom";
 import {
 	clampFocusToDepth,
-	DEFAULT_AUTO_ZOOM_DEPTH,
-	DEFAULT_ZOOM_DEPTH,
 	type EditorEffectSection,
 	type ZoomDepth,
 	type ZoomFocus,
@@ -73,7 +72,7 @@ export function useZoomRegionCommands({
 	const handleZoomAdded = useCallback(
 		(span: Span) => {
 			const id = `zoom-${nextZoomIdRef.current++}`;
-			const depth = DEFAULT_ZOOM_DEPTH;
+			const depth = getPreferredZoomDepth();
 			const newRegion: ZoomRegion = {
 				id,
 				startMs: Math.round(span.start),
@@ -103,12 +102,13 @@ export function useZoomRegionCommands({
 
 	const handleZoomSuggested = useCallback(
 		(span: Span, focus: ZoomFocus) => {
+			const depth = getPreferredZoomDepth();
 			const newRegion: ZoomRegion = {
 				id: `zoom-${nextZoomIdRef.current++}`,
 				startMs: Math.round(span.start),
 				endMs: Math.round(span.end),
-				depth: DEFAULT_AUTO_ZOOM_DEPTH,
-				focus: clampFocusToDepth(focus, DEFAULT_AUTO_ZOOM_DEPTH),
+				depth,
+				focus: clampFocusToDepth(focus, depth),
 				mode: "auto",
 			};
 			markFreshRecordingSuggestion();

@@ -39,6 +39,7 @@ import type { TimelineEditorHandle } from "../timeline/TimelineEditor";
 import type { VideoPlaybackRef } from "../VideoPlayback";
 import { MusicMenu } from "../sky/MusicMenu";
 import { ReelDesignMenu } from "../sky/ReelDesignMenu";
+import { ZoomMenu } from "../sky/ZoomMenu";
 import { EditorVideoPreview } from "./EditorVideoPreview";
 
 type Props = {
@@ -298,6 +299,12 @@ export function EditorPreviewPanel(props: Props) {
 						audioRegions={timeline.audioRegions}
 						setAudioRegions={timeline.setAudioRegions}
 						timelineDuration={projection.timelineDuration}
+					/>
+					<ZoomMenu
+						zoomRegions={timeline.zoomRegions}
+						setZoomRegions={timeline.setZoomRegions}
+						timelineDuration={projection.timelineDuration}
+						onSuggestZooms={() => timelineRef.current?.suggestZooms()}
 					/>
 					<Button
 						onClick={() => timelineRef.current?.addZoom()}
