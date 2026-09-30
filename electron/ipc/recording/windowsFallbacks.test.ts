@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	normalizeSkyWindowsMicCaptureMode,
 	shouldStartWindowsBrowserMicrophoneFallback,
 	shouldUseWindowsBrowserMicrophoneFallback,
 	WINDOWS_MIC_CAPTURE_MODE_ENV,
@@ -100,5 +101,34 @@ describe("shouldUseWindowsBrowserMicrophoneFallback", () => {
 				{ [WINDOWS_MIC_CAPTURE_MODE_ENV]: "fallback" },
 			),
 		).toBe(true);
+	});
+
+	it("follows the SKY app setting when no environment override is set", () => {
+		expect(
+			shouldStartWindowsBrowserMicrophoneFallback(
+				{ capturesMicrophone: true },
+				{},
+				"browser",
+			),
+		).toBe(true);
+		expect(
+			shouldStartWindowsBrowserMicrophoneFallback({ capturesMicrophone: true }, {}, "native"),
+		).toBe(false);
+	});
+
+	it("lets the environment variable override the SKY setting", () => {
+		expect(
+			shouldStartWindowsBrowserMicrophoneFallback(
+				{ capturesMicrophone: true },
+				{ [WINDOWS_MIC_CAPTURE_MODE_ENV]: "native" },
+				"browser",
+			),
+		).toBe(false);
+	});
+
+	it("defaults the SKY setting to the browser microphone", () => {
+		expect(normalizeSkyWindowsMicCaptureMode(null)).toBe("browser");
+		expect(normalizeSkyWindowsMicCaptureMode("native")).toBe("native");
+		expect(normalizeSkyWindowsMicCaptureMode("typo")).toBe("browser");
 	});
 });

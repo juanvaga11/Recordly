@@ -8,6 +8,7 @@ import { registerPermissionHandlers } from "./register/permissions";
 import { registerProjectHandlers } from "./register/project";
 import { registerRecordingHandlers } from "./register/recording";
 import { registerSettingsHandlers } from "./register/settings";
+import { registerSkyMicModeHandlers } from "./register/skyMicMode";
 import { registerSkyMusicHandlers } from "./register/skyMusic";
 import { registerSourceHandlers } from "./register/sources";
 import {
@@ -72,6 +73,7 @@ export function registerIpcHandlers(
 	registerExportHandlers();
 	registerCaptionHandlers();
 	registerSkyMusicHandlers();
+	registerSkyMicModeHandlers();
 	registerCloudShareHandlers();
 	registerProjectHandlers();
 	registerSettingsHandlers();

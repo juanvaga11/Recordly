@@ -1,9 +1,14 @@
-import { MicrophoneSlashIcon, SpeakerHighIcon, SpeakerXIcon } from "@/components/ui/icons";
+import {
+	CheckCircleIcon,
+	MicrophoneSlashIcon,
+	SpeakerHighIcon,
+	SpeakerXIcon,
+} from "@/components/ui/icons";
 import { useScopedT } from "@/contexts/I18nContext";
 import { DropdownItem, HudPopover, MicDeviceRow } from "./PopoverScaffold";
 import { useLaunchPopoverCoordinator } from "./LaunchPopoverCoordinator";
 import type { DeviceOption } from "./launchPopoverTypes";
-import type { ReactElement } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import styles from "../LaunchWindow.module.css";
 
 const POPOVER_ID = "mic";
@@ -34,6 +39,22 @@ export function MicPopover({
 	const t = useScopedT("launch");
 	const { isOpen, requestOpen, requestClose } = useLaunchPopoverCoordinator();
 	const open = isOpen(POPOVER_ID);
+	// SKY: Windows mic path. "browser" avoids the choppy native capture on some USB mics.
+	const [skyMicMode, setSkyMicMode] = useState<"browser" | "native" | null>(null);
+	useEffect(() => {
+		if (!open) return;
+		const api = window.electronAPI;
+		if (!api?.skyGetMicCaptureMode) return;
+		void api
+			.skyGetMicCaptureMode()
+			.then((result) => setSkyMicMode(result.platform === "win32" ? result.mode : null))
+			.catch(() => setSkyMicMode(null));
+	}, [open]);
+	const toggleSkyMicMode = () => {
+		const next = skyMicMode === "browser" ? "native" : "browser";
+		setSkyMicMode(next);
+		void window.electronAPI?.skySetMicCaptureMode?.(next).catch(() => undefined);
+	};
 
 	return (
 		<HudPopover
@@ -72,6 +93,17 @@ export function MicPopover({
 					}}
 				>
 					{t("recording.turnOffMicrophone")}
+				</DropdownItem>
+			)}
+			{skyMicMode && (
+				<DropdownItem
+					icon={<CheckCircleIcon size={16} />}
+					selected={skyMicMode === "browser"}
+					onClick={toggleSkyMicMode}
+				>
+					{skyMicMode === "browser"
+						? "Audio estable: activado (recomendado)"
+						: "Audio estable: desactivado"}
 				</DropdownItem>
 			)}
 			{!microphoneEnabled && (

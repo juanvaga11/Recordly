@@ -12,6 +12,7 @@ import {
 	shell,
 	systemPreferences,
 } from "electron";
+import { readAppSetting } from "../../appSettingsStore";
 import { getHudCaptureExcludedProcessIds } from "../../../src/lib/hudCaptureProtection";
 import { showCursor } from "../../cursorHider";
 import { getHudOverlayCaptureProtectionEnabled, beginHudCaptureProtection } from "../../windows";
@@ -80,6 +81,8 @@ import {
 	waitForWindowsCaptureStop,
 } from "../recording/windows";
 import {
+	normalizeSkyWindowsMicCaptureMode,
+	SKY_WINDOWS_MIC_CAPTURE_SETTING,
 	shouldStartWindowsBrowserMicrophoneFallback,
 	shouldUseWindowsBrowserMicrophoneFallback,
 } from "../recording/windowsFallbacks";
@@ -454,8 +457,14 @@ export function registerRecordingHandlers(
 					let microphonePath: string | null = null;
 					let orphanedMicAudioPath: string | null = null;
 
-					const browserMicFallbackRequested =
-						shouldStartWindowsBrowserMicrophoneFallback(options);
+					const skyMicMode = normalizeSkyWindowsMicCaptureMode(
+						readAppSetting(SKY_WINDOWS_MIC_CAPTURE_SETTING),
+					);
+					const browserMicFallbackRequested = shouldStartWindowsBrowserMicrophoneFallback(
+						options,
+						process.env,
+						skyMicMode,
+					);
 					const captureTarget = resolveWindowsCaptureTarget(
 						source,
 						getScreen().getAllDisplays(),
