@@ -132,6 +132,10 @@ export function EditorVideoPreview({
 					: Math.max(0, Math.min(1, previewVolume * audio.embeddedSourcePreviewGain))
 			}
 			suspendRendering={suspendRendering}
+			onChartPaddingChange={(padding) => appearance.setPadding(padding)}
+			onAutoCaptionOffsetChange={(bottomOffset) =>
+				timeline.setAutoCaptionSettings((current) => ({ ...current, bottomOffset }))
+			}
 			onWebcamChange={(patch) =>
 				appearance.setWebcam((current) => ({ ...current, ...patch }))
 			}

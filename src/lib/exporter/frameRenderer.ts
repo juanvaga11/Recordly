@@ -16,11 +16,8 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
-import {
-	BASE_PREVIEW_HEIGHT,
-	BASE_PREVIEW_WIDTH,
-	DEFAULT_WEBCAM_ROUNDNESS,
-} from "@/components/video-editor/types";
+import { BASE_PREVIEW_WIDTH, DEFAULT_WEBCAM_ROUNDNESS } from "@/components/video-editor/types";
+import { applyZoomClip } from "@/components/video-editor/sky/zoomClip";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -75,7 +72,6 @@ import { renderAnnotations } from "./annotationRenderer";
 import { renderCaptions } from "./captionRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
-
 
 interface FrameRenderConfig {
 	timelineEffects?: boolean;
@@ -222,6 +218,8 @@ function configureHighQuality2DContext(
 export class FrameRenderer {
 	private app: Application | null = null;
 	private cameraContainer: Container | null = null;
+	/** SKY: clips zooms to the recording box in 9:16 exports. */
+	private zoomClipGraphics: Graphics | null = null;
 	private videoEffectsContainer: Container | null = null;
 	private videoContainer: Container | null = null;
 	private cursorContainer: Container | null = null;
@@ -1491,10 +1489,10 @@ export class FrameRenderer {
 			this.config.annotationRegions.length > 0 &&
 			this.compositeCtx
 		) {
-			// Calculate scale factor based on export vs preview dimensions
-			const scaleX = this.config.width / BASE_PREVIEW_WIDTH;
-			const scaleY = this.config.height / BASE_PREVIEW_HEIGHT;
-			const scaleFactor = (scaleX + scaleY) / 2;
+			// SKY fix: same rule as the editor preview — text scales with the
+			// width of the recording in the frame (fontSize × width / 1920)
+			const annotationMaskWidth = this.layoutCache?.maskRect?.width ?? this.config.width;
+			const scaleFactor = annotationMaskWidth / BASE_PREVIEW_WIDTH;
 
 			await renderAnnotations(
 				this.compositeCtx,
@@ -1591,6 +1589,16 @@ export class FrameRenderer {
 				sourceCrop: cropRegion,
 			},
 		};
+		if (this.app && this.cameraContainer) {
+			this.zoomClipGraphics = applyZoomClip({
+				stage: this.app.stage,
+				cameraContainer: this.cameraContainer,
+				rect: this.layoutCache.maskRect,
+				stageWidth: this.config.width,
+				stageHeight: this.config.height,
+				current: this.zoomClipGraphics,
+			});
+		}
 	}
 
 	/** Advance the export camera from the shared scene target at this media time. */
@@ -1978,6 +1986,7 @@ export class FrameRenderer {
 		this.zoomBlurFilter?.destroy();
 		this.motionBlurFilter?.destroy();
 		this.cameraContainer = null;
+		this.zoomClipGraphics = null;
 		this.videoEffectsContainer = null;
 		this.videoContainer = null;
 		this.maskGraphics = null;

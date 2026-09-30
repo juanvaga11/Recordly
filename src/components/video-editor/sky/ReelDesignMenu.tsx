@@ -23,6 +23,7 @@ import {
 	type ReelTemplateId,
 	scaleCamera,
 } from "./reelTemplates";
+import { CAPTION_SPOTS, type CaptionSpot, closestCaptionSpot } from "./captionPosition";
 import { SKY_GOLD } from "./skyPresets";
 
 type Appearance = ReturnType<typeof useAppearanceState>;
@@ -30,6 +31,9 @@ type Appearance = ReturnType<typeof useAppearanceState>;
 interface ReelDesignMenuProps {
 	appearance: Appearance;
 	setAspectRatio: Dispatch<SetStateAction<AspectRatio>>;
+	/** Caption position (% from the bottom of the frame). */
+	captionOffset: number;
+	onCaptionOffsetChange: (bottomOffset: number) => void;
 }
 
 const BAND_COLORS: Record<ReelTemplate["bands"][number]["kind"], string> = {
@@ -75,7 +79,13 @@ function TemplatePreview({ template }: { template: ReelTemplate }) {
  * for the chart position and the camera. The camera can also be dragged and
  * resized directly on the preview.
  */
-export function ReelDesignMenu({ appearance, setAspectRatio }: ReelDesignMenuProps) {
+export function ReelDesignMenu({
+	appearance,
+	setAspectRatio,
+	captionOffset,
+	onCaptionOffsetChange,
+}: ReelDesignMenuProps) {
+	const captionSpot = closestCaptionSpot(captionOffset);
 	const [open, setOpen] = useState(false);
 	const webcam = appearance.webcam;
 	const hasCamera = Boolean(webcam.sourcePath);
@@ -159,6 +169,33 @@ export function ReelDesignMenu({ appearance, setAspectRatio }: ReelDesignMenuPro
 								appearance.setPadding(chartPositionToPadding((value ?? 50) / 100))
 							}
 						/>
+					</div>
+
+					<div>
+						<p className="mb-2 text-[11px] font-semibold text-foreground">Subtítulos</p>
+						<div className="grid grid-cols-3 gap-1.5">
+							{(Object.keys(CAPTION_SPOTS) as CaptionSpot[]).map((spot) => (
+								<button
+									key={spot}
+									type="button"
+									aria-pressed={captionSpot === spot}
+									onClick={() =>
+										onCaptionOffsetChange(CAPTION_SPOTS[spot].bottomOffset)
+									}
+									className={cn(
+										"h-8 rounded-lg border text-[11px] font-semibold transition-colors",
+										captionSpot === spot
+											? "border-[#D4AF37] bg-[#D4AF37]/15 text-foreground"
+											: "border-foreground/10 bg-foreground/[0.04] text-muted-foreground",
+									)}
+								>
+									{CAPTION_SPOTS[spot].label}
+								</button>
+							))}
+						</div>
+						<p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+							O arrástrelos con la manija dorada ⇕ junto al subtítulo en el video.
+						</p>
 					</div>
 
 					<div className={cn(!hasCamera && "pointer-events-none opacity-50")}>

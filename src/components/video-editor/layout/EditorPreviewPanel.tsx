@@ -273,7 +273,17 @@ export function EditorPreviewPanel(props: Props) {
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
-					<ReelDesignMenu appearance={appearance} setAspectRatio={setAspectRatio} />
+					<ReelDesignMenu
+						appearance={appearance}
+						setAspectRatio={setAspectRatio}
+						captionOffset={timeline.autoCaptionSettings.bottomOffset}
+						onCaptionOffsetChange={(bottomOffset) =>
+							timeline.setAutoCaptionSettings((current) => ({
+								...current,
+								bottomOffset,
+							}))
+						}
+					/>
 					<Button
 						onClick={() => timelineRef.current?.removeSilences()}
 						variant="ghost"

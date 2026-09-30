@@ -139,7 +139,15 @@ import {
 	getWebcamOverlayPosition,
 	scaleWebcamOverlayPixels,
 } from "./webcamOverlay";
-import { scaleCamera } from "./sky/reelTemplates";
+import {
+	chartWidthShare,
+	moveChart,
+	paddingToChartPosition,
+	resizeChart,
+	scaleCamera,
+} from "./sky/reelTemplates";
+import { dragCaptionOffset } from "./sky/captionPosition";
+import { applyZoomClip } from "./sky/zoomClip";
 
 type PlaybackAnimationState = {
 	scale: number;
@@ -261,6 +269,10 @@ interface VideoPlaybackProps {
 	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
 	/** SKY Academy: drag / wheel-resize the camera directly on the preview. */
 	onWebcamChange?: (patch: Partial<WebcamOverlaySettings>) => void;
+	/** SKY Academy: drag captions up/down on the preview. */
+	onAutoCaptionOffsetChange?: (bottomOffset: number) => void;
+	/** SKY Academy: move / resize the chart with handles on the preview. */
+	onChartPaddingChange?: (padding: Padding) => void;
 	cursorTelemetry?: CursorTelemetryPoint[];
 	showCursor?: boolean;
 	cursorStyle?: CursorStyle;
@@ -348,6 +360,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onAnnotationPositionChange,
 			onAnnotationSizeChange,
 			onWebcamChange,
+			onAutoCaptionOffsetChange,
+			onChartPaddingChange,
 			cursorTelemetry = [],
 			showCursor = false,
 			cursorStyle = DEFAULT_CURSOR_STYLE,
@@ -471,6 +485,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}>({ x: 0, y: 0, width: 0, height: 0 });
 		const cropBoundsRef = useRef({ startX: 0, endX: 0, startY: 0, endY: 0 });
 		const maskGraphicsRef = useRef<Graphics | null>(null);
+		const zoomClipGraphicsRef = useRef<Graphics | null>(null);
 		const isPlayingRef = useRef(isPlaying);
 		const suspendRenderingRef = useRef(suspendRendering);
 		const isSeekingRef = useRef(false);
@@ -904,6 +919,170 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			[onWebcamChange, webcam],
 		);
 
+		// SKY Academy: resize the camera by dragging its corner.
+		const webcamResizeRef = useRef<{
+			pointerId: number;
+			startX: number;
+			startY: number;
+			startWidth: number;
+			startHeight: number;
+			snapshot: WebcamOverlaySettings;
+		} | null>(null);
+		const handleWebcamResizeDown = useCallback(
+			(event: React.PointerEvent<HTMLDivElement>) => {
+				const bubble = webcamBubbleRef.current;
+				if (!onWebcamChange || !webcam || !bubble || event.button !== 0) return;
+				event.stopPropagation();
+				event.preventDefault();
+				const rect = bubble.getBoundingClientRect();
+				webcamResizeRef.current = {
+					pointerId: event.pointerId,
+					startX: event.clientX,
+					startY: event.clientY,
+					startWidth: Math.max(1, rect.width),
+					startHeight: Math.max(1, rect.height),
+					snapshot: webcam,
+				};
+				event.currentTarget.setPointerCapture(event.pointerId);
+			},
+			[onWebcamChange, webcam],
+		);
+		const handleWebcamResizeMove = useCallback(
+			(event: React.PointerEvent<HTMLDivElement>) => {
+				const drag = webcamResizeRef.current;
+				if (!drag || drag.pointerId !== event.pointerId || !onWebcamChange) return;
+				event.stopPropagation();
+				const dx = event.clientX - drag.startX;
+				const dy = (event.clientY - drag.startY) * (drag.startWidth / drag.startHeight);
+				const grow = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+				const factor = Math.max(0.1, (drag.startWidth + grow) / drag.startWidth);
+				onWebcamChange(scaleCamera(drag.snapshot, factor));
+			},
+			[onWebcamChange],
+		);
+		const handleWebcamResizeUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+			if (webcamResizeRef.current?.pointerId !== event.pointerId) return;
+			webcamResizeRef.current = null;
+			event.currentTarget.releasePointerCapture?.(event.pointerId);
+		}, []);
+
+		// SKY Academy: move the chart up/down and resize it from its corner.
+		const chartDragRef = useRef<{
+			pointerId: number;
+			mode: "move" | "resize";
+			startX: number;
+			startY: number;
+			startPadding: Padding;
+			startPosition: number;
+			startWidth: number;
+			travel: number;
+			scale: number;
+		} | null>(null);
+		const chartPadding: Padding =
+			typeof padding === "number"
+				? { top: padding, bottom: padding, left: padding, right: padding, linked: true }
+				: padding;
+		const handleChartHandleDown = useCallback(
+			(mode: "move" | "resize") => (event: React.PointerEvent<HTMLDivElement>) => {
+				const overlay = overlayRef.current;
+				if (!onChartPaddingChange || !overlay || event.button !== 0) return;
+				event.stopPropagation();
+				event.preventDefault();
+				const overlayRect = overlay.getBoundingClientRect();
+				const scale = overlay.clientHeight / Math.max(1, overlayRect.height);
+				chartDragRef.current = {
+					pointerId: event.pointerId,
+					mode,
+					startX: event.clientX,
+					startY: event.clientY,
+					startPadding: chartPadding,
+					startPosition: paddingToChartPosition(chartPadding),
+					startWidth: Math.max(1, annotationRecordingRect.width),
+					travel: Math.max(1, overlay.clientHeight - annotationRecordingRect.height),
+					scale,
+				};
+				event.currentTarget.setPointerCapture(event.pointerId);
+			},
+			[
+				annotationRecordingRect.height,
+				annotationRecordingRect.width,
+				chartPadding,
+				onChartPaddingChange,
+			],
+		);
+		const handleChartHandleMove = useCallback(
+			(event: React.PointerEvent<HTMLDivElement>) => {
+				const drag = chartDragRef.current;
+				if (!drag || drag.pointerId !== event.pointerId || !onChartPaddingChange) return;
+				event.stopPropagation();
+				if (drag.mode === "move") {
+					const dy = (event.clientY - drag.startY) * drag.scale;
+					onChartPaddingChange(
+						moveChart(drag.startPadding, drag.startPosition + dy / drag.travel),
+					);
+				} else {
+					// the chart stays centered horizontally, so it grows on both sides
+					const dx = (event.clientX - drag.startX) * drag.scale * 2;
+					onChartPaddingChange(
+						resizeChart(drag.startPadding, (drag.startWidth + dx) / drag.startWidth),
+					);
+				}
+			},
+			[onChartPaddingChange],
+		);
+		const handleChartHandleUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+			if (chartDragRef.current?.pointerId !== event.pointerId) return;
+			chartDragRef.current = null;
+			event.currentTarget.releasePointerCapture?.(event.pointerId);
+		}, []);
+
+		// SKY Academy: grab the caption handle and drag it anywhere vertically.
+		const captionDragRef = useRef<{
+			pointerId: number;
+			startY: number;
+			startOffset: number;
+		} | null>(null);
+		const handleCaptionGripDown = useCallback(
+			(event: React.PointerEvent<HTMLDivElement>) => {
+				if (!onAutoCaptionOffsetChange || !autoCaptionSettings || event.button !== 0)
+					return;
+				event.stopPropagation();
+				event.preventDefault();
+				captionDragRef.current = {
+					pointerId: event.pointerId,
+					startY: event.clientY,
+					startOffset: autoCaptionSettings.bottomOffset,
+				};
+				event.currentTarget.setPointerCapture(event.pointerId);
+			},
+			[autoCaptionSettings, onAutoCaptionOffsetChange],
+		);
+		const handleCaptionGripMove = useCallback(
+			(event: React.PointerEvent<HTMLDivElement>) => {
+				const drag = captionDragRef.current;
+				const overlay = overlayRef.current;
+				if (
+					!drag ||
+					drag.pointerId !== event.pointerId ||
+					!overlay ||
+					!onAutoCaptionOffsetChange
+				) {
+					return;
+				}
+				event.stopPropagation();
+				const height = overlay.getBoundingClientRect().height;
+				onAutoCaptionOffsetChange(
+					dragCaptionOffset(drag.startOffset, event.clientY - drag.startY, height),
+				);
+			},
+			[onAutoCaptionOffsetChange],
+		);
+		const handleCaptionGripUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+			if (captionDragRef.current?.pointerId !== event.pointerId) return;
+			captionDragRef.current = null;
+			event.currentTarget.releasePointerCapture?.(event.pointerId);
+		}, []);
+
 		const applyWebcamBubbleLayout = useCallback(
 			(zoomScale: number) => {
 				const bubble = webcamBubbleRef.current;
@@ -1125,6 +1304,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					};
 				});
 				cropBoundsRef.current = result.cropBounds;
+				// SKY: in 9:16 keep zooms inside the chart's box
+				zoomClipGraphicsRef.current = applyZoomClip({
+					stage: app.stage,
+					cameraContainer,
+					rect: result.maskRect,
+					stageWidth: result.stageSize.width,
+					stageHeight: result.stageSize.height,
+					current: zoomClipGraphicsRef.current,
+				});
 
 				// Layout updates the media geometry, not the composed camera pose.
 				// In particular, a ResizeObserver notification while paused must not
@@ -2534,6 +2722,25 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									touchAction: "none",
 								}}
 							>
+								{onWebcamChange ? (
+									<div
+										role="slider"
+										aria-label="Cambiar el tamaño de la cámara"
+										aria-valuenow={Math.round(webcam.width)}
+										title="Jale para agrandar o achicar la cámara"
+										onPointerDown={handleWebcamResizeDown}
+										onPointerMove={handleWebcamResizeMove}
+										onPointerUp={handleWebcamResizeUp}
+										onPointerCancel={handleWebcamResizeUp}
+										className="absolute z-10 h-4 w-4 cursor-nwse-resize rounded-full border-2 border-black/60"
+										style={{
+											right: -6,
+											bottom: -6,
+											background: "#D4AF37",
+											touchAction: "none",
+										}}
+									/>
+								) : null}
 								<div
 									ref={webcamBubbleInnerRef}
 									className="relative h-full w-full overflow-hidden"
@@ -2580,12 +2787,37 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							>
 								<div
 									style={{
+										position: "relative",
 										maxWidth: `${autoCaptionSettings.maxWidth}%`,
 										opacity: activeCaptionLayout.opacity,
 										transform: `translateY(${activeCaptionLayout.translateY}px) scale(${activeCaptionLayout.scale})`,
 										transformOrigin: "center center",
 									}}
 								>
+									{onAutoCaptionOffsetChange ? (
+										<div
+											role="slider"
+											aria-label="Mover subtítulos arriba o abajo"
+											aria-valuenow={Math.round(
+												autoCaptionSettings.bottomOffset,
+											)}
+											title="Arrastre para subir o bajar los subtítulos"
+											onPointerDown={handleCaptionGripDown}
+											onPointerMove={handleCaptionGripMove}
+											onPointerUp={handleCaptionGripUp}
+											onPointerCancel={handleCaptionGripUp}
+											className="absolute top-1/2 flex h-7 w-5 -translate-y-1/2 cursor-ns-resize items-center justify-center rounded-md text-[11px] leading-none"
+											style={{
+												left: -26,
+												background: "rgba(212, 175, 55, 0.9)",
+												color: "#0A0A0A",
+												touchAction: "none",
+												pointerEvents: "auto",
+											}}
+										>
+											⇕
+										</div>
+									) : null}
 									<div
 										ref={captionBoxRef}
 										className="focus-visible:outline-2 focus-visible:outline-accent"
@@ -2885,6 +3117,59 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								})()}
 							</div>
 						</div>
+						{onChartPaddingChange && annotationRecordingRect.width > 0 ? (
+							<>
+								<div
+									role="slider"
+									aria-label="Mover el gráfico arriba o abajo"
+									aria-valuenow={Math.round(
+										paddingToChartPosition(chartPadding) * 100,
+									)}
+									title="Arrastre para subir o bajar el gráfico"
+									onPointerDown={handleChartHandleDown("move")}
+									onPointerMove={handleChartHandleMove}
+									onPointerUp={handleChartHandleUp}
+									onPointerCancel={handleChartHandleUp}
+									className="absolute z-20 flex h-6 -translate-x-1/2 cursor-ns-resize items-center gap-1 rounded-full px-2 text-[10px] font-semibold shadow"
+									style={{
+										left:
+											annotationRecordingRect.x +
+											annotationRecordingRect.width / 2,
+										top: Math.max(2, annotationRecordingRect.y + 6),
+										background: "rgba(212, 175, 55, 0.92)",
+										color: "#0A0A0A",
+										pointerEvents: "auto",
+										touchAction: "none",
+									}}
+								>
+									⇕ Gráfico
+								</div>
+								<div
+									role="slider"
+									aria-label="Cambiar el tamaño del gráfico"
+									aria-valuenow={Math.round(chartWidthShare(chartPadding) * 100)}
+									title="Jale la esquina para agrandar o achicar el gráfico"
+									onPointerDown={handleChartHandleDown("resize")}
+									onPointerMove={handleChartHandleMove}
+									onPointerUp={handleChartHandleUp}
+									onPointerCancel={handleChartHandleUp}
+									className="absolute z-20 h-4 w-4 cursor-nwse-resize rounded-sm border-2 border-black/60"
+									style={{
+										left:
+											annotationRecordingRect.x +
+											annotationRecordingRect.width -
+											10,
+										top:
+											annotationRecordingRect.y +
+											annotationRecordingRect.height -
+											10,
+										background: "#D4AF37",
+										pointerEvents: "auto",
+										touchAction: "none",
+									}}
+								/>
+							</>
+						) : null}
 						{/* SKY: annotations pinned to the frame (watermark, trade card) ignore zoom/pan */}
 						<div className="absolute inset-0" style={{ pointerEvents: "none" }}>
 							{(() => {

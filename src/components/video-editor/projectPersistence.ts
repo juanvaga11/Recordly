@@ -1,3 +1,4 @@
+import { SKY_CAPTION_MAX_OFFSET } from "./sky/captionPosition";
 import { getLocalMediaServerPath } from "@/lib/localMediaUrl";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
 import type {
@@ -761,7 +762,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			? clamp(rawAutoCaptionSettings.fontSize, 16, 72)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.fontSize,
 		bottomOffset: isFiniteNumber(rawAutoCaptionSettings.bottomOffset)
-			? clamp(rawAutoCaptionSettings.bottomOffset, 0, 30)
+			? clamp(rawAutoCaptionSettings.bottomOffset, 0, SKY_CAPTION_MAX_OFFSET)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.bottomOffset,
 		maxWidth: isFiniteNumber(rawAutoCaptionSettings.maxWidth)
 			? clamp(rawAutoCaptionSettings.maxWidth, 40, 95)

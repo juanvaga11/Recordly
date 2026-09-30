@@ -30,6 +30,7 @@ import { type AspectRatio, getAspectRatioValue } from "@/utils/aspectRatioUtils"
 import { useI18n, useScopedT } from "../../contexts/I18nContext";
 import type { AppLocale } from "../../i18n/config";
 import { SUPPORTED_LOCALES } from "../../i18n/config";
+import { SKY_CAPTION_MAX_OFFSET } from "./sky/captionPosition";
 import type { SkyAnnotationPatch } from "./sky/skyPresets";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import CaptionListPanel from "./CaptionListPanel";
@@ -2207,7 +2208,7 @@ export function SettingsPanel({
 						label={tSettings("captions.bottomOffset", "Bottom offset")}
 						value={autoCaptionSettings.bottomOffset}
 						min={0}
-						max={30}
+						max={SKY_CAPTION_MAX_OFFSET}
 						step={1}
 						onChange={(value) => updateAutoCaptionSettings({ bottomOffset: value })}
 						formatValue={(value) => `${Math.round(value)}%`}

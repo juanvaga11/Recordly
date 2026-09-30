@@ -6,10 +6,13 @@ import {
 	applyCameraShape,
 	buildReelTemplate,
 	chartPositionToPadding,
+	chartWidthShare,
 	getCameraShape,
 	moveCameraToCorner,
+	moveChart,
 	paddingToChartPosition,
 	REEL_TEMPLATES,
+	resizeChart,
 	type ReelTemplateId,
 	scaleCamera,
 } from "./reelTemplates";
@@ -161,5 +164,29 @@ describe("logo loop templates", () => {
 	it("moves the camera to any corner", () => {
 		expect(moveCameraToCorner("top-right")).toMatchObject({ positionX: 1, positionY: 0 });
 		expect(moveCameraToCorner("bottom-left")).toMatchObject({ positionX: 0, positionY: 1 });
+	});
+});
+
+describe("chart handles", () => {
+	it("moves the chart without changing its width", () => {
+		const padding = { top: 0, bottom: 250, left: 40, right: 40, linked: false };
+		expect(moveChart(padding, 1)).toMatchObject({ top: 250, bottom: 0, left: 40, right: 40 });
+	});
+
+	it("resizes between 60% and 100% of the frame width", () => {
+		const full = chartPositionToPadding(0);
+		expect(chartWidthShare(full)).toBe(1);
+		const smaller = resizeChart(full, 0.8);
+		expect(chartWidthShare(smaller)).toBeCloseTo(0.8, 2);
+		expect(smaller.top).toBe(0);
+		expect(chartWidthShare(resizeChart(smaller, 0.1))).toBeCloseTo(0.6, 2);
+		expect(chartWidthShare(resizeChart(smaller, 5))).toBe(1);
+	});
+
+	it("keeps the chart centered when resizing a linked (default) layout", () => {
+		const linked = { top: 20, bottom: 20, left: 20, right: 20, linked: true };
+		const resized = resizeChart(linked, 1);
+		expect(resized.linked).toBe(false);
+		expect(paddingToChartPosition(resized)).toBeCloseTo(0.5, 2);
 	});
 });

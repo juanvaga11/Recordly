@@ -27,9 +27,11 @@ import type {
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
 import {
+	BASE_PREVIEW_WIDTH,
 	DEFAULT_WEBCAM_ROUNDNESS,
 	getDefaultCaptionFontFamily,
 } from "@/components/video-editor/types";
+import { applyZoomClip } from "@/components/video-editor/sky/zoomClip";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -365,6 +367,8 @@ export class FrameRenderer {
 	private rendererBackend: ExportRenderBackend = "webgl";
 	private backgroundContainer: Container | null = null;
 	private cameraContainer: Container | null = null;
+	/** SKY: clips zooms to the recording box in 9:16 exports. */
+	private zoomClipGraphics: Graphics | null = null;
 	private videoEffectsContainer: Container | null = null;
 	private videoContainer: Container | null = null;
 	private cursorContainer: Container | null = null;
@@ -1417,10 +1421,40 @@ export class FrameRenderer {
 		void previousSource?.destroy();
 	}
 
+	/**
+	 * Where the recording sits in the output frame. The render loop fills
+	 * layoutCache lazily on the first video frame, but annotation sprites are
+	 * built before that, so compute the same rect straight from the config.
+	 */
+	private getAnnotationMaskRect(): { x: number; y: number; width: number; height: number } {
+		if (this.layoutCache?.maskRect) return this.layoutCache.maskRect;
+		const { width, height, cropRegion, padding = 0, videoWidth, videoHeight } = this.config;
+		if (!videoWidth || !videoHeight) return { x: 0, y: 0, width, height };
+		const layout = computePaddedLayout({
+			width,
+			height,
+			padding,
+			frameInsets: null,
+			cropRegion,
+			videoWidth,
+			videoHeight,
+		});
+		return {
+			x: layout.centerOffsetX,
+			y: layout.centerOffsetY,
+			width: layout.croppedDisplayWidth,
+			height: layout.croppedDisplayHeight,
+		};
+	}
+
+	/**
+	 * SKY fix: the editor preview sizes annotation text as
+	 * fontSize × (recording width / 1920). Use the same rule here so exported
+	 * text matches the preview (it used to come out up to 2× bigger in 9:16).
+	 */
 	private calculateAnnotationScaleFactor(): number {
-		const previewWidth = this.config.previewWidth || 1920;
-		const previewHeight = this.config.previewHeight || 1080;
-		return (this.config.width / previewWidth + this.config.height / previewHeight) / 2;
+		const maskWidth = this.getAnnotationMaskRect().width;
+		return maskWidth > 0 ? maskWidth / BASE_PREVIEW_WIDTH : 1;
 	}
 
 	private hasActiveBlurAnnotations(timeMs: number): boolean {
@@ -1536,9 +1570,7 @@ export class FrameRenderer {
 
 		for (const annotation of annotations) {
 			const frameRect = { x: 0, y: 0, width: this.config.width, height: this.config.height };
-			const annotationRect = annotation.pinToFrame
-				? frameRect
-				: (this.layoutCache?.maskRect ?? frameRect);
+			const annotationRect = annotation.pinToFrame ? frameRect : this.getAnnotationMaskRect();
 			const x = annotationRect.x + (annotation.position.x / 100) * annotationRect.width;
 			const y = annotationRect.y + (annotation.position.y / 100) * annotationRect.height;
 			const width = (annotation.size.width / 100) * annotationRect.width;
@@ -3067,6 +3099,16 @@ export class FrameRenderer {
 				sourceCrop: cropRegion,
 			},
 		};
+		if (this.app && this.cameraContainer) {
+			this.zoomClipGraphics = applyZoomClip({
+				stage: this.app.stage,
+				cameraContainer: this.cameraContainer,
+				rect: this.layoutCache.maskRect,
+				stageWidth: this.config.width,
+				stageHeight: this.config.height,
+				current: this.zoomClipGraphics,
+			});
+		}
 	}
 
 	private updateVideoShadowLayout(layout: {
@@ -3271,6 +3313,7 @@ export class FrameRenderer {
 		this.app = null;
 		this.backgroundContainer = null;
 		this.cameraContainer = null;
+		this.zoomClipGraphics = null;
 		this.videoEffectsContainer = null;
 		this.videoContainer = null;
 		this.cursorContainer = null;

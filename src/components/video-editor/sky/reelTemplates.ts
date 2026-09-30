@@ -133,6 +133,39 @@ export function paddingToChartPosition(padding: Padding): number {
 	return span > 0 ? Math.min(1, Math.max(0, padding.top / span)) : 0.5;
 }
 
+/** Recordly's horizontal padding: 100% on one side takes 20% of the frame width. */
+const PADDING_SIDE_SHARE = 0.2;
+
+/** Share of the frame width the chart can use with the current side padding (0.6–1). */
+export function chartWidthShare(padding: Padding): number {
+	const side = (Math.min(100, Math.max(0, padding.left)) / 100) * PADDING_SIDE_SHARE;
+	const other = (Math.min(100, Math.max(0, padding.right)) / 100) * PADDING_SIDE_SHARE;
+	return Math.max(0, 1 - side - other);
+}
+
+/** Moves the chart vertically (0 top … 1 bottom) keeping its width. */
+export function moveChart(padding: Padding, position: number): Padding {
+	return { ...chartPositionToPadding(position), left: padding.left, right: padding.right };
+}
+
+/**
+ * Resizes the chart by `factor` using side padding. The chart can shrink to
+ * 60% of the frame width and grow back up to the full width.
+ */
+export function resizeChart(padding: Padding, factor: number): Padding {
+	const safe = Number.isFinite(factor) && factor > 0 ? factor : 1;
+	const share = Math.min(
+		1,
+		Math.max(1 - 2 * PADDING_SIDE_SHARE, chartWidthShare(padding) * safe),
+	);
+	const side = Math.round(((1 - share) / 2 / PADDING_SIDE_SHARE) * 1000) / 10;
+	const vertical =
+		padding.linked === false
+			? padding
+			: chartPositionToPadding(paddingToChartPosition(padding));
+	return { ...vertical, left: side, right: side, linked: false };
+}
+
 /**
  * Size of the chart band when the screen recording (16:9) is cropped with the
  * Reel crop and fills the width of a 9:16 frame, as a share of frame height.
