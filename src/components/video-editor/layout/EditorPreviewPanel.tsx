@@ -37,7 +37,7 @@ import type { useAppearanceState } from "../state/useAppearanceState";
 import type { useTimelineState } from "../state/useTimelineState";
 import type { TimelineEditorHandle } from "../timeline/TimelineEditor";
 import type { VideoPlaybackRef } from "../VideoPlayback";
-import { applySkyReelLayout } from "../sky/applySkyReel";
+import { ReelDesignMenu } from "../sky/ReelDesignMenu";
 import { EditorVideoPreview } from "./EditorVideoPreview";
 
 type Props = {
@@ -272,15 +272,7 @@ export function EditorPreviewPanel(props: Props) {
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
-					<Button
-						onClick={() => applySkyReelLayout(appearance, setAspectRatio)}
-						size="sm"
-						className="h-9 shrink-0 px-3 text-xs font-semibold"
-						style={{ background: "#D4AF37", color: "#0A0A0A" }}
-						title="Formato Reel SKY: 9:16, sin relleno, recorte al gráfico, cámara abajo y fondo SKY"
-					>
-						Reel SKY
-					</Button>
+					<ReelDesignMenu appearance={appearance} setAspectRatio={setAspectRatio} />
 					<Button
 						onClick={() => timelineRef.current?.removeSilences()}
 						variant="ghost"

@@ -132,6 +132,9 @@ export function EditorVideoPreview({
 					: Math.max(0, Math.min(1, previewVolume * audio.embeddedSourcePreviewGain))
 			}
 			suspendRendering={suspendRendering}
+			onWebcamChange={(patch) =>
+				appearance.setWebcam((current) => ({ ...current, ...patch }))
+			}
 			{...handlers}
 		/>
 	);

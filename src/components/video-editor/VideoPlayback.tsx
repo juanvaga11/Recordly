@@ -139,6 +139,7 @@ import {
 	getWebcamOverlayPosition,
 	scaleWebcamOverlayPixels,
 } from "./webcamOverlay";
+import { scaleCamera } from "./sky/reelTemplates";
 
 type PlaybackAnimationState = {
 	scale: number;
@@ -258,6 +259,8 @@ interface VideoPlaybackProps {
 	onSelectAnnotation?: (id: string | null) => void;
 	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
 	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	/** SKY Academy: drag / wheel-resize the camera directly on the preview. */
+	onWebcamChange?: (patch: Partial<WebcamOverlaySettings>) => void;
 	cursorTelemetry?: CursorTelemetryPoint[];
 	showCursor?: boolean;
 	cursorStyle?: CursorStyle;
@@ -344,6 +347,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onSelectAnnotation,
 			onAnnotationPositionChange,
 			onAnnotationSizeChange,
+			onWebcamChange,
 			cursorTelemetry = [],
 			showCursor = false,
 			cursorStyle = DEFAULT_CURSOR_STYLE,
@@ -827,6 +831,78 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				willChange: "left, top, width, height",
 			};
 		}, [webcamCropRegion, webcamHeight, webcamVideoDimensions, webcamWidth]);
+
+		// SKY Academy: move the camera with the mouse and resize it with the wheel.
+		const webcamDragRef = useRef<{
+			pointerId: number;
+			offsetX: number;
+			offsetY: number;
+		} | null>(null);
+		const handleWebcamPointerDown = useCallback(
+			(event: React.PointerEvent<HTMLDivElement>) => {
+				if (!onWebcamChange || event.button !== 0) return;
+				const bubble = webcamBubbleRef.current;
+				if (!bubble) return;
+				event.stopPropagation();
+				event.preventDefault();
+				const rect = bubble.getBoundingClientRect();
+				webcamDragRef.current = {
+					pointerId: event.pointerId,
+					offsetX: event.clientX - rect.left,
+					offsetY: event.clientY - rect.top,
+				};
+				bubble.setPointerCapture(event.pointerId);
+			},
+			[onWebcamChange],
+		);
+		const handleWebcamPointerMove = useCallback(
+			(event: React.PointerEvent<HTMLDivElement>) => {
+				const drag = webcamDragRef.current;
+				const bubble = webcamBubbleRef.current;
+				const overlay = overlayRef.current;
+				if (
+					!drag ||
+					drag.pointerId !== event.pointerId ||
+					!bubble ||
+					!overlay ||
+					!onWebcamChange
+				) {
+					return;
+				}
+				event.stopPropagation();
+				const overlayRect = overlay.getBoundingClientRect();
+				// the preview may be CSS-scaled: convert screen px to overlay px
+				const scaleX = overlay.clientWidth / Math.max(1, overlayRect.width);
+				const scaleY = overlay.clientHeight / Math.max(1, overlayRect.height);
+				const margin = scaleWebcamOverlayPixels(webcamMargin, overlay.clientWidth);
+				const left = (event.clientX - overlayRect.left) * scaleX - drag.offsetX * scaleX;
+				const top = (event.clientY - overlayRect.top) * scaleY - drag.offsetY * scaleY;
+				const availableWidth = overlay.clientWidth - bubble.offsetWidth - margin * 2;
+				const availableHeight = overlay.clientHeight - bubble.offsetHeight - margin * 2;
+				const toRatio = (value: number, available: number) =>
+					available > 0 ? Math.min(1, Math.max(0, (value - margin) / available)) : 0.5;
+				onWebcamChange({
+					positionPreset: "custom",
+					positionX: Math.round(toRatio(left, availableWidth) * 1000) / 1000,
+					positionY: Math.round(toRatio(top, availableHeight) * 1000) / 1000,
+				});
+			},
+			[onWebcamChange, webcamMargin],
+		);
+		const handleWebcamPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+			if (webcamDragRef.current?.pointerId !== event.pointerId) return;
+			webcamDragRef.current = null;
+			webcamBubbleRef.current?.releasePointerCapture?.(event.pointerId);
+		}, []);
+		const handleWebcamWheel = useCallback(
+			(event: React.WheelEvent<HTMLDivElement>) => {
+				if (!onWebcamChange || !webcam) return;
+				event.stopPropagation();
+				const factor = event.deltaY < 0 ? 1.06 : 1 / 1.06;
+				onWebcamChange(scaleCamera(webcam, factor));
+			},
+			[onWebcamChange, webcam],
+		);
 
 		const applyWebcamBubbleLayout = useCallback(
 			(zoomScale: number) => {
@@ -2436,6 +2512,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								ref={webcamBubbleRef}
 								data-webcam-overlay
 								className="absolute"
+								title={
+									onWebcamChange
+										? "Arrastre para mover la cámara · rueda del mouse para cambiar el tamaño"
+										: undefined
+								}
+								onPointerDown={handleWebcamPointerDown}
+								onPointerMove={handleWebcamPointerMove}
+								onPointerUp={handleWebcamPointerUp}
+								onPointerCancel={handleWebcamPointerUp}
+								onWheel={handleWebcamWheel}
 								style={{
 									display:
 										webcam.enabled &&
@@ -2443,7 +2529,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										isWebcamVisibleAtSourceTime(webcam, currentTime)
 											? "block"
 											: "none",
-									pointerEvents: "none",
+									pointerEvents: onWebcamChange ? "auto" : "none",
+									cursor: onWebcamChange ? "grab" : undefined,
+									touchAction: "none",
 								}}
 							>
 								<div
