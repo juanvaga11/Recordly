@@ -24,6 +24,9 @@ interface UseTimelineZoomActionsParams {
 	onZoomSuggested?: (span: Span, focus: ZoomFocus) => void;
 }
 
+/** Shortest zoom that can be added by hand (short clips after cutting silences). */
+const MIN_ZOOM_MS = 300;
+
 export function useTimelineZoomActions({
 	timeline,
 	regions,
@@ -69,9 +72,28 @@ export function useTimelineZoomActions({
 				(region) => startPos >= region.startMs && startPos < region.endMs,
 			);
 
-			return !isOverlapping && availableDuration >= defaultDuration;
+			// SKY: after "Silencios" many clips are shorter than 1 s; allow a shorter zoom.
+			return !isOverlapping && availableDuration >= Math.min(defaultDuration, MIN_ZOOM_MS);
 		},
 		[videoDuration, totalMs, defaultRegionDurationMs, clipRegions, zoomRegions],
+	);
+
+	const availableZoomDurationAt = useCallback(
+		(startPos: number) => {
+			const activeClip =
+				clipRegions.length === 0
+					? { startMs: 0, endMs: totalMs }
+					: clipRegions.find((clip) => startPos >= clip.startMs && startPos < clip.endMs);
+			if (!activeClip) return 0;
+			const nextRegion = [...zoomRegions]
+				.sort((a, b) => a.startMs - b.startMs)
+				.find((region) => region.startMs > startPos);
+			return Math.min(
+				activeClip.endMs - startPos,
+				nextRegion ? nextRegion.startMs - startPos : Number.POSITIVE_INFINITY,
+			);
+		},
+		[clipRegions, totalMs, zoomRegions],
 	);
 
 	const addZoomAtMs = useCallback(
@@ -88,15 +110,25 @@ export function useTimelineZoomActions({
 			const startPos = Math.max(0, Math.min(startMs, totalMs));
 			if (!canPlaceZoomAtMs(startPos)) {
 				timelineNotifications.error(
-					"Cannot place zoom here",
-					"Zoom already exists here or there is not enough room before the next zoom or clip end.",
+					"No cabe un zoom aquí",
+					"Ya hay un zoom en este punto o no queda espacio antes del siguiente. Tip: use el menú Zoom → «Seguir el mouse todo el video».",
 				);
 				return;
 			}
 
-			onZoomAdded({ start: startPos, end: startPos + defaultDuration });
+			onZoomAdded({
+				start: startPos,
+				end: startPos + Math.min(defaultDuration, availableZoomDurationAt(startPos)),
+			});
 		},
-		[videoDuration, totalMs, defaultRegionDurationMs, canPlaceZoomAtMs, onZoomAdded],
+		[
+			videoDuration,
+			totalMs,
+			defaultRegionDurationMs,
+			canPlaceZoomAtMs,
+			availableZoomDurationAt,
+			onZoomAdded,
+		],
 	);
 
 	const handleAddZoom = useCallback(() => {

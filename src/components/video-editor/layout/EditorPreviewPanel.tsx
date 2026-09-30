@@ -38,6 +38,7 @@ import type { useTimelineState } from "../state/useTimelineState";
 import type { TimelineEditorHandle } from "../timeline/TimelineEditor";
 import type { VideoPlaybackRef } from "../VideoPlayback";
 import { MusicMenu } from "../sky/MusicMenu";
+import { ExpectationMenu } from "../sky/ExpectationMenu";
 import { ReelDesignMenu } from "../sky/ReelDesignMenu";
 import { ZoomMenu } from "../sky/ZoomMenu";
 import { EditorVideoPreview } from "./EditorVideoPreview";
@@ -229,6 +230,48 @@ export function EditorPreviewPanel(props: Props) {
 				</div>
 			</div>
 
+			{/* SKY Academy tools: own row so nothing overlaps the playback controls */}
+			<div className="editor-sky-tools flex shrink-0 flex-wrap items-center justify-center gap-1.5 px-4 pt-1">
+				<ReelDesignMenu
+					appearance={appearance}
+					setAspectRatio={setAspectRatio}
+					captionOffset={timeline.autoCaptionSettings.bottomOffset}
+					onCaptionOffsetChange={(bottomOffset) =>
+						timeline.setAutoCaptionSettings((current) => ({
+							...current,
+							bottomOffset,
+						}))
+					}
+				/>
+				<Button
+					onClick={() => timelineRef.current?.removeSilences()}
+					variant="ghost"
+					size="sm"
+					className="h-9 shrink-0 gap-1.5 px-2 text-xs font-semibold"
+					title="Cortar silencios: detecta las pausas de la voz y las recorta (Ctrl+Z para deshacer)"
+				>
+					<Scissors className="h-4 w-4" style={{ color: "#D4AF37" }} />
+					Silencios
+				</Button>
+				<MusicMenu
+					audioRegions={timeline.audioRegions}
+					setAudioRegions={timeline.setAudioRegions}
+					timelineDuration={projection.timelineDuration}
+				/>
+				<ZoomMenu
+					zoomRegions={timeline.zoomRegions}
+					setZoomRegions={timeline.setZoomRegions}
+					timelineDuration={projection.timelineDuration}
+					onSuggestZooms={() => timelineRef.current?.suggestZooms()}
+				/>
+				<ExpectationMenu
+					annotationRegions={timeline.annotationRegions}
+					setAnnotationRegions={timeline.setAnnotationRegions}
+					playheadSeconds={projection.timelinePlayheadTime}
+					frameAspect={previewAspectRatioValue}
+				/>
+			</div>
+
 			<div className="editor-playback relative grid min-h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-4">
 				<div className="editor-playback-tools z-10 flex min-w-0 items-center gap-2">
 					<DropdownMenu>
@@ -274,38 +317,6 @@ export function EditorPreviewPanel(props: Props) {
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
-					<ReelDesignMenu
-						appearance={appearance}
-						setAspectRatio={setAspectRatio}
-						captionOffset={timeline.autoCaptionSettings.bottomOffset}
-						onCaptionOffsetChange={(bottomOffset) =>
-							timeline.setAutoCaptionSettings((current) => ({
-								...current,
-								bottomOffset,
-							}))
-						}
-					/>
-					<Button
-						onClick={() => timelineRef.current?.removeSilences()}
-						variant="ghost"
-						size="sm"
-						className="h-9 shrink-0 gap-1.5 px-2 text-xs font-semibold"
-						title="Cortar silencios: detecta las pausas de la voz y las recorta (Ctrl+Z para deshacer)"
-					>
-						<Scissors className="h-4 w-4" style={{ color: "#D4AF37" }} />
-						Silencios
-					</Button>
-					<MusicMenu
-						audioRegions={timeline.audioRegions}
-						setAudioRegions={timeline.setAudioRegions}
-						timelineDuration={projection.timelineDuration}
-					/>
-					<ZoomMenu
-						zoomRegions={timeline.zoomRegions}
-						setZoomRegions={timeline.setZoomRegions}
-						timelineDuration={projection.timelineDuration}
-						onSuggestZooms={() => timelineRef.current?.suggestZooms()}
-					/>
 					<Button
 						onClick={() => timelineRef.current?.addZoom()}
 						variant="ghost"
