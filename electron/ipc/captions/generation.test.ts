@@ -23,6 +23,7 @@ vi.mock("node:child_process", () => ({
 vi.mock("node:fs/promises", () => ({
 	default: {
 		access: vi.fn().mockResolvedValue(undefined),
+		stat: vi.fn().mockResolvedValue({ size: 1_000_000 }),
 		readFile: mocks.readFile,
 		rm: mocks.rm,
 	},
@@ -163,4 +164,29 @@ it("falls back to linked webcam audio when mic exists and other secondary source
 			([file, args]) => file === "/ffmpeg" && args.includes("/webcam.mp4"),
 		),
 	).toBe(true);
+});
+
+it("keeps the microphone captions when Whisper writes nothing for the other track", async () => {
+	mocks.companions.mockResolvedValue([
+		{
+			platform: "win",
+			micPath: "/video.mic.wav",
+			systemPath: "/video.system.wav",
+			usablePaths: ["/video.mic.wav"],
+		},
+	]);
+	let whisperRuns = 0;
+	mocks.exec.mockImplementation(async (file: string) => {
+		if (file === "/whisper") whisperRuns++;
+		return { stderr: "" };
+	});
+	mocks.readFile.mockImplementation(async (file: string) => {
+		// second Whisper run (embedded track) produced no files at all
+		if (whisperRuns >= 2) {
+			throw Object.assign(new Error(`ENOENT: open '${file}'`), { code: "ENOENT" });
+		}
+		return file.endsWith(".json") ? json : srt;
+	});
+	const result = await generateAutoCaptionsFromVideo(options);
+	expect(result.cues[0]?.text).toBe("Hello world.");
 });

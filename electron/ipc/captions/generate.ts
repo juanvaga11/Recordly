@@ -29,6 +29,9 @@ const execFileAsync = promisify(execFile);
 
 class NoCaptionAudioError extends Error {}
 
+/** WAV header plus about a quarter second of 16 kHz mono audio. */
+const MIN_CAPTION_WAV_BYTES = 44 + 16000 * 2 * 0.25;
+
 async function executeWhisper(whisperExecutablePath: string, args: string[]) {
 	try {
 		await execFileAsync(whisperExecutablePath, args, {
@@ -183,6 +186,12 @@ export async function extractCaptionAudioSource(options: {
 				],
 				{ timeout: 5 * 60 * 1000, maxBuffer: 20 * 1024 * 1024 },
 			);
+			// SKY: a track that exists but holds no samples gives Whisper nothing to
+			// read (it then exits without writing any output); try the next source.
+			const extracted = await fs.stat(options.wavPath);
+			if (extracted.size < MIN_CAPTION_WAV_BYTES) {
+				throw new Error(`Extracted audio is empty (${extracted.size} bytes)`);
+			}
 			attemptedCandidates.push({ ...candidate, readable: true, extractedAudio: true });
 			return candidate;
 		} catch (error) {
@@ -298,7 +307,19 @@ async function generateCaptionsForSource(options: {
 			await executeWhisper(whisperExecutablePath, whisperBaseArgs);
 		}
 
-		const cues = await readWhisperCaptionOutput(outputBase, jsonEnabled);
+		let cues: Awaited<ReturnType<typeof readWhisperCaptionOutput>>;
+		try {
+			cues = await readWhisperCaptionOutput(outputBase, jsonEnabled);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+			// SKY: Whisper exits "successfully" without files when it cannot read
+			// the audio. Treat that track as having no speech so the other one can
+			// still be transcribed, instead of failing with a temp-file path.
+			console.warn("[auto-captions] Whisper wrote no transcript for", audioSource.label);
+			throw new NoCaptionAudioError(
+				"No se pudo transcribir el audio de esta grabación. Pruebe de nuevo o use otro modelo de subtítulos.",
+			);
+		}
 
 		// Whisper cues run sentences together and don't break on pauses. Re-segment them
 		// into one caption per sentence/phrase using Whisper's own word stream (punctuation
