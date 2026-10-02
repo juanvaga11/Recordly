@@ -15,6 +15,9 @@ type Handlers = Pick<
 	| "onSelectAnnotation"
 	| "onAnnotationPositionChange"
 	| "onAnnotationSizeChange"
+	| "zoomAreaPicking"
+	| "onZoomAreaPicked"
+	| "onZoomAreaPickCancel"
 >;
 
 type Props = {

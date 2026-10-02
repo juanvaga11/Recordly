@@ -16,7 +16,7 @@ import {
 	SpeakerLow,
 	SpeakerX,
 } from "@/components/ui/icons";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import { type Dispatch, type RefObject, type SetStateAction, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -43,6 +43,9 @@ import { ReelDesignMenu } from "../sky/ReelDesignMenu";
 import { SoundMenu } from "../sky/SoundMenu";
 import { StickerMenu } from "../sky/StickerMenu";
 import { ZoomMenu } from "../sky/ZoomMenu";
+import { applyZoomArea, type NormalizedRect } from "../sky/zoomArea";
+import { zoomScaleLabel } from "../sky/skyZoom";
+import { toast } from "@/components/ui/toast";
 import { EditorVideoPreview } from "./EditorVideoPreview";
 
 type Props = {
@@ -122,6 +125,26 @@ export function EditorPreviewPanel(props: Props) {
 		setIsPlaying,
 		setError,
 	} = props;
+
+	const [zoomAreaPicking, setZoomAreaPicking] = useState(false);
+
+	/** SKY "Marcar zona de zoom": point a zoom at the rectangle the user drew. */
+	const handleZoomAreaPicked = (area: NormalizedRect) => {
+		setZoomAreaPicking(false);
+		const result = applyZoomArea(timeline.zoomRegions, area, {
+			playheadMs: projection.timelinePlayheadTime * 1000,
+			timelineEndMs: projection.timelineDuration * 1000,
+			selectedZoomId: timeline.selectedZoomId,
+		});
+		timeline.setZoomRegions(result.regions);
+		zoomCommands.handleSelectZoom(result.zoomId);
+		const zoom = result.regions.find((region) => region.id === result.zoomId);
+		toast.success(`Zoom ${zoom ? zoomScaleLabel(zoom.depth) : ""} en esa zona`, {
+			description: result.created
+				? "Nuevo zoom de 3 s desde la línea roja. Alárguelo o muévalo en la línea de tiempo. Ctrl+Z para deshacer."
+				: "Se ajustó el zoom que ya estaba ahí. Ctrl+Z para deshacer.",
+		});
+	};
 
 	/** Visible recording after crop (width / height): chart stickers keep their shape on it. */
 	const getChartAspect = () => {
@@ -232,6 +255,9 @@ export function EditorPreviewPanel(props: Props) {
 											annotationCommands.handleAnnotationPositionChange,
 										onAnnotationSizeChange:
 											annotationCommands.handleAnnotationSizeChange,
+										zoomAreaPicking,
+										onZoomAreaPicked: handleZoomAreaPicked,
+										onZoomAreaPickCancel: () => setZoomAreaPicking(false),
 									}}
 								/>
 							</div>
@@ -278,6 +304,10 @@ export function EditorPreviewPanel(props: Props) {
 					setZoomRegions={timeline.setZoomRegions}
 					timelineDuration={projection.timelineDuration}
 					onSuggestZooms={() => timelineRef.current?.suggestZooms()}
+					onPickArea={() => {
+						videoPlaybackRef.current?.pause();
+						setZoomAreaPicking(true);
+					}}
 				/>
 				<StickerMenu
 					annotationRegions={timeline.annotationRegions}

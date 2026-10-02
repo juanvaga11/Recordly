@@ -100,6 +100,8 @@ import {
 	preloadCursorAssets,
 } from "./videoPlayback/cursorRenderer";
 import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
+import { ZoomAreaPicker } from "./sky/ZoomAreaPicker";
+import type { NormalizedRect } from "./sky/zoomArea";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { clamp01 } from "./videoPlayback/mathUtils";
 import {
@@ -273,6 +275,10 @@ interface VideoPlaybackProps {
 	onAutoCaptionOffsetChange?: (bottomOffset: number) => void;
 	/** SKY Academy: move / resize the chart with handles on the preview. */
 	onChartPaddingChange?: (padding: Padding) => void;
+	/** SKY: while true the user draws the zoom rectangle on the preview. */
+	zoomAreaPicking?: boolean;
+	onZoomAreaPicked?: (area: NormalizedRect) => void;
+	onZoomAreaPickCancel?: () => void;
 	cursorTelemetry?: CursorTelemetryPoint[];
 	showCursor?: boolean;
 	cursorStyle?: CursorStyle;
@@ -362,6 +368,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onWebcamChange,
 			onAutoCaptionOffsetChange,
 			onChartPaddingChange,
+			zoomAreaPicking,
+			onZoomAreaPicked,
+			onZoomAreaPickCancel,
 			cursorTelemetry = [],
 			showCursor = false,
 			cursorStyle = DEFAULT_CURSOR_STYLE,
@@ -3169,6 +3178,23 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									}}
 								/>
 							</>
+						) : null}
+						{zoomAreaPicking && onZoomAreaPicked && onZoomAreaPickCancel ? (
+							<ZoomAreaPicker
+								getTransform={() => {
+									const camera = cameraContainerRef.current;
+									return camera
+										? {
+												scale: camera.scale.x,
+												x: camera.position.x,
+												y: camera.position.y,
+											}
+										: { scale: 1, x: 0, y: 0 };
+								}}
+								getBaseMask={() => baseMaskRef.current}
+								onPicked={onZoomAreaPicked}
+								onCancel={onZoomAreaPickCancel}
+							/>
 						) : null}
 						{/* SKY: annotations pinned to the frame (watermark, trade card) ignore zoom/pan */}
 						<div className="absolute inset-0" style={{ pointerEvents: "none" }}>

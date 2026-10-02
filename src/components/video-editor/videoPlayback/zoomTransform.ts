@@ -1,3 +1,4 @@
+import { shouldClipZoomToRecording } from "../sky/zoomClip";
 import { Container } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
@@ -418,6 +419,22 @@ function applyCameraStepBlur({
 	}
 }
 
+/**
+ * Where the zoom focus lands on screen. Normally the stage center; in SKY
+ * vertical Reels the zoom is clipped to the chart's box (sky/zoomClip.ts), so
+ * the focus must land in the center of that box. Otherwise, with the chart in
+ * the top half, the zoomed area slid below the box and was cut off.
+ */
+export function getZoomTargetCenter(
+	stageSize: { width: number; height: number },
+	baseMask: { x: number; y: number; width: number; height: number },
+): { x: number; y: number } {
+	if (shouldClipZoomToRecording(stageSize.width, stageSize.height)) {
+		return { x: baseMask.x + baseMask.width / 2, y: baseMask.y + baseMask.height / 2 };
+	}
+	return { x: stageSize.width / 2, y: stageSize.height / 2 };
+}
+
 export function computeZoomTransform({
 	stageSize,
 	baseMask,
@@ -438,8 +455,7 @@ export function computeZoomTransform({
 	const progress = Math.min(1, Math.max(0, zoomProgress));
 	const focusStagePxX = baseMask.x + focusX * baseMask.width;
 	const focusStagePxY = baseMask.y + focusY * baseMask.height;
-	const stageCenterX = stageSize.width / 2;
-	const stageCenterY = stageSize.height / 2;
+	const { x: stageCenterX, y: stageCenterY } = getZoomTargetCenter(stageSize, baseMask);
 	const scale = 1 + (zoomScale - 1) * progress;
 	const finalX = stageCenterX - focusStagePxX * zoomScale;
 	const finalY = stageCenterY - focusStagePxY * zoomScale;
@@ -468,8 +484,7 @@ export function computeFocusFromTransform({
 		return { cx: 0.5, cy: 0.5 };
 	}
 
-	const stageCenterX = stageSize.width / 2;
-	const stageCenterY = stageSize.height / 2;
+	const { x: stageCenterX, y: stageCenterY } = getZoomTargetCenter(stageSize, baseMask);
 	const focusStagePxX = (stageCenterX - x) / zoomScale;
 	const focusStagePxY = (stageCenterY - y) / zoomScale;
 

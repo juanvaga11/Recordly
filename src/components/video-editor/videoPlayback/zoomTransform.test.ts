@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
 	applyZoomTransform,
 	computeDirectionalMotionBlur,
+	computeFocusFromTransform,
 	computeZoomTransform,
 	createMotionBlurState,
+	getZoomTargetCenter,
 } from "./zoomTransform";
 
 function createStubContainer() {
@@ -180,5 +182,37 @@ describe("applyZoomTransform motion blur routing", () => {
 		expect(zoomBlurFilter.strength).toBeGreaterThan(0);
 		expect(Math.hypot(motionBlurFilter.velocity.x, motionBlurFilter.velocity.y)).toBe(0);
 		expect(zoomBlurFilter.innerRadius).toBe(0);
+	});
+});
+
+describe("SKY vertical zoom target", () => {
+	const stageSize = { width: 540, height: 960 };
+	// chart band in the top half of a 9:16 frame
+	const baseMask = { x: 0, y: 120, width: 540, height: 360 };
+
+	it("centers the zoom on the chart box in vertical frames", () => {
+		expect(getZoomTargetCenter(stageSize, baseMask)).toEqual({ x: 270, y: 300 });
+		expect(getZoomTargetCenter({ width: 1920, height: 1080 }, baseMask)).toEqual({
+			x: 960,
+			y: 540,
+		});
+	});
+
+	it("keeps the focused point inside the chart box", () => {
+		const focus = { focusX: 0.8, focusY: 0.3 };
+		const transform = computeZoomTransform({ stageSize, baseMask, zoomScale: 2, ...focus });
+		const screenY = (baseMask.y + focus.focusY * baseMask.height) * transform.scale + transform.y;
+		const screenX = (baseMask.x + focus.focusX * baseMask.width) * transform.scale + transform.x;
+		expect(screenX).toBeCloseTo(270);
+		expect(screenY).toBeCloseTo(300);
+		const back = computeFocusFromTransform({
+			stageSize,
+			baseMask,
+			zoomScale: 2,
+			x: transform.x,
+			y: transform.y,
+		});
+		expect(back.cx).toBeCloseTo(0.8);
+		expect(back.cy).toBeCloseTo(0.3);
 	});
 });

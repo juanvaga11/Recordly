@@ -77,5 +77,10 @@ export function buildFollowMouseZoom(timelineDurationMs: number, depth: ZoomDept
 }
 
 export function hasFollowMouseZoom(regions: ZoomRegion[]): boolean {
-	return regions.some((region) => region.id === SKY_FOLLOW_ZOOM_ID);
+	return regions.some((region) => isFollowMouseZoom(region));
+}
+
+/** Pieces of a split "follow the mouse" zoom keep the same id prefix. */
+export function isFollowMouseZoom(region: Pick<ZoomRegion, "id">): boolean {
+	return region.id.startsWith(SKY_FOLLOW_ZOOM_ID);
 }

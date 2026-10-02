@@ -11,7 +11,7 @@ import {
 	buildFollowMouseZoom,
 	getPreferredZoomDepth,
 	hasFollowMouseZoom,
-	SKY_FOLLOW_ZOOM_ID,
+	isFollowMouseZoom,
 	SKY_ZOOM_LEVELS,
 	setAllZoomDepth,
 	setPreferredZoomDepth,
@@ -25,6 +25,8 @@ interface ZoomMenuProps {
 	timelineDuration: number;
 	/** Recordly's automatic zooms on clicks and mouse stops. */
 	onSuggestZooms: () => void;
+	/** Starts drawing a rectangle on the preview to choose where to zoom. */
+	onPickArea: () => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export function ZoomMenu({
 	setZoomRegions,
 	timelineDuration,
 	onSuggestZooms,
+	onPickArea,
 }: ZoomMenuProps) {
 	const [open, setOpen] = useState(false);
 	const [depth, setDepth] = useState<ZoomDepth>(() => getPreferredZoomDepth());
@@ -63,7 +66,7 @@ export function ZoomMenu({
 	};
 
 	const stopFollowing = () =>
-		setZoomRegions((current) => current.filter((region) => region.id !== SKY_FOLLOW_ZOOM_ID));
+		setZoomRegions((current) => current.filter((region) => !isFollowMouseZoom(region)));
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -81,6 +84,24 @@ export function ZoomMenu({
 			</PopoverTrigger>
 			<PopoverContent align="start" side="top" sideOffset={10} className="w-[320px] p-4">
 				<div className="space-y-4">
+					<div>
+						<Button
+							type="button"
+							onClick={() => {
+								setOpen(false);
+								onPickArea();
+							}}
+							className="h-10 w-full text-xs font-semibold"
+							style={{ background: SKY_GOLD, color: "#0A0A0A" }}
+						>
+							🎯 Marcar zona de zoom
+						</Button>
+						<p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+							Ponga la línea roja donde quiere el zoom y dibuje un recuadro sobre la
+							parte del gráfico. El zoom va justo ahí (3 s, o el zoom que tenga
+							seleccionado).
+						</p>
+					</div>
 					<div>
 						<p className="mb-2 text-sm font-semibold text-foreground">
 							¿Qué tan cerca?
@@ -117,9 +138,9 @@ export function ZoomMenu({
 					<div className="space-y-2">
 						<Button
 							type="button"
+							variant="outline"
 							onClick={followMouse}
-							className="h-9 w-full text-xs font-semibold"
-							style={{ background: SKY_GOLD, color: "#0A0A0A" }}
+							className="h-9 w-full border-[#D4AF37]/60 text-xs font-semibold"
 						>
 							{following
 								? "Volver a aplicar: seguir el mouse"
